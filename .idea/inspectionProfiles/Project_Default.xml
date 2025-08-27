@@ -1,0 +1,39 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="defusedxml" />
+          <option value="diff-match-patch" />
+          <option value="django-import-export" />
+          <option value="et-xmlfile" />
+          <option value="MarkupPy" />
+          <option value="odfpy" />
+          <option value="openpyxl" />
+          <option value="Pillow" />
+          <option value="pytz" />
+          <option value="PyYAML" />
+          <option value="resources" />
+          <option value="tablib" />
+          <option value="xlrd" />
+          <option value="xlwt" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyStatementEffectInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyUnreachableCodeInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="false" level="WARNING" enabled_by_default="false">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="fossilsdb1.settings.BASE_DIR" />
+          <option value="fossilsdb1.settings.os" />
+          <option value="casts.models.Fossil.title" />
+          <option value="casts.models.Primate.photo_set" />
+          <option value="casts.models.Primate.title" />
+          <option value="charstatesadmin.forms.CharacterStates" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
