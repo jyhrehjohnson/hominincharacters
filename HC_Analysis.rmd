@@ -1,0 +1,92 @@
+---
+title: "HC Analysis"
+author: "Jyhreh Johnson"
+date: "2025-09-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE) # Toggle whether to show R code chunks
+```
+
+```{r echo = FALSE, include=FALSE}
+# Preliminaries, Load necessary libraries
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(jsonlite)
+library(ggstatsplot)
+library(knitr)
+```
+
+# Load/Reload Data 
+```{Load Data}
+#Load Hominin Characters spreadsheet
+hominin_characters <- read.csv("Known_Hominin_Characters.csv") #Make sure to check spreadsheet in Google Drive for changes
+
+
+# Load/Reload Data from Origins using the API [Not working yet]
+#omo_turkana_URL <- "http://paleocore.org/origins/api/turkfossils/"
+#omo_turkana_df <- as.data.frame(fromJSON(omo_turkana_URL))
+```
+
+### Character Type Analysis
+```{r table.cap='Table 2'}
+chartype.table <-hominin_characters %>% count(character_type) # create summary df
+chartype.table.cd<-chartype.table[chartype.table$character_type %in% c('Continuous','Discrete'),] # subset df to show just Continuous/Discrete rows
+chartype.table.cd$proportions <- chartype.table.cd$n/sum(chartype.table.cd$n) # Add column with proportion data
+knitr::kable(chartype.table, label=NA, caption='Table 1. Chartacter Type counts')
+
+chartype_plot <- barplot(chartype.table$n, 
+                                  names.arg = chartype.table$character_type, 
+                                  col = "pink",
+                                  main = "Character Type Plot", 
+                                  xlab = "Character Type", 
+                                  ylab = "Count")
+
+text(x = chartype_plot, 
+     y = chartype.table$n / 2,  # Middle of bars
+     labels = chartype.table$n, 
+     col = 'black',
+     font = 2)  # Text size
+```
+
+### Multistate Type Analysis
+```{r table.cap='Table 2'}
+multitype.table <-hominin_characters %>% count(multistate_type) # create summary df
+multitype.table$proportions <- multitype.table$n/sum(multitype.table$n) # Add column with proportion data
+knitr::kable(chartype.table, label=NA, caption='Table 2. Multistate Type counts')
+
+multitype_plot <- barplot(multitype.table$n, 
+                                  names.arg = multitype.table$multistate_type, 
+                                  col = "lightblue",
+                                  main = "Multistate Type Plot", 
+                                  xlab = "Multistate Type", 
+                                  ylab = "Count")
+
+text(x = multitype_plot, 
+     y = multitype.table$n / 2,  # Middle of bars
+     labels = multitype.table$n, 
+     col = 'black',
+     font = 2)  # Text size
+```
+
+### Anatomical Analysis
+```{r table.cap='Table 2'}
+anatomical_region.table <-hominin_characters %>% count(anatomical_region) # create summary df
+anatomical_region.table$proportions <- anatomical_region.table$n/sum(anatomical_region.table$n) # Add column with proportion data
+knitr::kable(chartype.table, label=NA, caption='Table 3. Anatomical counts')
+
+anatomical_region_plot <- barplot(anatomical_region.table$n, 
+                                  names.arg = anatomical_region.table$anatomical_region, 
+                                  col = "lightgreen",
+                                  main = "Anatomical Region Plot", 
+                                  xlab = "Anatomical Region", 
+                                  ylab = "Count")
+
+text(x = anatomical_region_plot, 
+     y = anatomical_region.table$n / 2,  # Middle of bars
+     labels = anatomical_region.table$n, 
+     col = 'black',
+     font = 2)  # Text size
+```
