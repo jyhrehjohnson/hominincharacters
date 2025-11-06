@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Skeleton Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .skeleton-container {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .skeleton-container h2 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        .skeleton-svg {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+        }
+
+        .bone {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .bone:hover {
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+            transform: scale(1.05);
+        }
+
+        .bone.selected {
+            filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.8));
+        }
+
+        .info-panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 700px;
+        }
+
+        .info-panel h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .placeholder {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px;
+            font-size: 1.2em;
+        }
+
+        .bone-info {
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .uberon-badge {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .fossil-card, .character-card {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            transition: transform 0.2s ease;
+        }
+
+        .fossil-card:hover, .character-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .fossil-card h4, .character-card h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .fossil-card p, .character-card p {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        .count-badge {
+            background: #e74c3c;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦴 Interactive Skeleton Explorer</h1>
+            <p>Click on any bone to view its Uberon ID and associated fossils</p>
+        </div>
+
+        <div class="main-content">
+            <div class="skeleton-container">
+                <h2>Human Skeleton</h2>
+                <svg class="skeleton-svg" viewBox="0 0 300 600" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Cranium -->
+                    <ellipse class="bone" data-uberon="UBERON:0000929" data-name="Cranium" 
+                             cx="150" cy="40" rx="35" ry="45" 
+                             fill="#e8e8e8" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Mandible -->
+                    <path class="bone" data-uberon="UBERON:0001684" data-name="Mandible"
+                          d="M 130 75 Q 150 90 170 75" 
+                          fill="#e8e8e8" stroke="#333" stroke-width="3" fill="none"/>
+                    
+                    <!-- Cervical Vertebrae -->
+                    <rect class="bone" data-uberon="UBERON:0002413" data-name="Cervical Vertebrae"
+                          x="140" y="90" width="20" height="30" 
+                          fill="#d8d8d8" stroke="#333" stroke-width="2" rx="5"/>
+                    
+                    <!-- Clavicle (left) -->
+                    <line class="bone" data-uberon="UBERON:0001105" data-name="Clavicle"
+                          x1="150" y1="125" x2="110" y2="135" 
+                          stroke="#c8c8c8" stroke-width="6" stroke-linecap="round"/>
+                    
+                    <!-- Clavicle (right) -->
+                    <line class="bone" data-uberon="UBERON:0001105" data-name="Clavicle"
+                          x1="150" y1="125" x2="190" y2="135" 
+                          stroke="#c8c8c8" stroke-width="6" stroke-linecap="round"/>
+                    
+                    <!-- Scapula (left) -->
+                    <path class="bone" data-uberon="UBERON:0006849" data-name="Scapula"
+                          d="M 110 135 L 100 140 L 105 165 L 115 160 Z" 
+                          fill="#d8d8d8" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Scapula (right) -->
+                    <path class="bone" data-uberon="UBERON:0006849" data-name="Scapula"
+                          d="M 190 135 L 200 140 L 195 165 L 185 160 Z" 
+                          fill="#d8d8d8" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Humerus (left) -->
+                    <line class="bone" data-uberon="UBERON:0000976" data-name="Humerus"
+                          x1="105" y1="165" x2="95" y2="240" 
+                          stroke="#b8b8b8" stroke-width="8" stroke-linecap="round"/>
+                    
+                    <!-- Humerus (right) -->
+                    <line class="bone" data-uberon="UBERON:0000976" data-name="Humerus"
+                          x1="195" y1="165" x2="205" y2="240" 
+                          stroke="#b8b8b8" stroke-width="8" stroke-linecap="round"/>
+                    
+                    <!-- Ribs/Thorax -->
+                    <ellipse class="bone" data-uberon="UBERON:0002228" data-name="Thorax"
+                             cx="150" cy="170" rx="40" ry="55" 
+                             fill="none" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Vertebral Column -->
+                    <rect class="bone" data-uberon="UBERON:0001130" data-name="Vertebral Column"
+                          x="142" y="125" width="16" height="110" 
+                          fill="#c8c8c8" stroke="#333" stroke-width="2" rx="5"/>
+                    
+                    <!-- Pelvis -->
+                    <ellipse class="bone" data-uberon="UBERON:0002355" data-name="Pelvis"
+                             cx="150" cy="250" rx="45" ry="25" 
+                             fill="#d8d8d8" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Radius (left) -->
+                    <line class="bone" data-uberon="UBERON:0001423" data-name="Radius"
+                          x1="92" y1="245" x2="85" y2="320" 
+                          stroke="#b8b8b8" stroke-width="6" stroke-linecap="round"/>
+                    
+                    <!-- Ulna (left) -->
+                    <line class="bone" data-uberon="UBERON:0001424" data-name="Ulna"
+                          x1="98" y1="245" x2="92" y2="320" 
+                          stroke="#b8b8b8" stroke-width="6" stroke-linecap="round"/>
+                    
+                    <!-- Radius (right) -->
+                    <line class="bone" data-uberon="UBERON:0001423" data-name="Radius"
+                          x1="208" y1="245" x2="215" y2="320" 
+                          stroke="#b8b8b8" stroke-width="6" stroke-linecap="round"/>
+                    
+                    <!-- Ulna (right) -->
+                    <line class="bone" data-uberon="UBERON:0001424" data-name="Ulna"
+                          x1="202" y1="245" x2="208" y2="320" 
+                          stroke="#b8b8b8" stroke-width="6" stroke-linecap="round"/>
+                    
+                    <!-- Femur (left) -->
+                    <line class="bone" data-uberon="UBERON:0000981" data-name="Femur"
+                          x1="130" y1="270" x2="125" y2="380" 
+                          stroke="#a8a8a8" stroke-width="10" stroke-linecap="round"/>
+                    
+                    <!-- Femur (right) -->
+                    <line class="bone" data-uberon="UBERON:0000981" data-name="Femur"
+                          x1="170" y1="270" x2="175" y2="380" 
+                          stroke="#a8a8a8" stroke-width="10" stroke-linecap="round"/>
+                    
+                    <!-- Tibia (left) -->
+                    <line class="bone" data-uberon="UBERON:0000979" data-name="Tibia"
+                          x1="125" y1="385" x2="120" y2="500" 
+                          stroke="#b8b8b8" stroke-width="8" stroke-linecap="round"/>
+                    
+                    <!-- Fibula (left) -->
+                    <line class="bone" data-uberon="UBERON:0001446" data-name="Fibula"
+                          x1="130" y1="385" x2="127" y2="500" 
+                          stroke="#b8b8b8" stroke-width="5" stroke-linecap="round"/>
+                    
+                    <!-- Tibia (right) -->
+                    <line class="bone" data-uberon="UBERON:0000979" data-name="Tibia"
+                          x1="175" y1="385" x2="180" y2="500" 
+                          stroke="#b8b8b8" stroke-width="8" stroke-linecap="round"/>
+                    
+                    <!-- Fibula (right) -->
+                    <line class="bone" data-uberon="UBERON:0001446" data-name="Fibula"
+                          x1="170" y1="385" x2="173" y2="500" 
+                          stroke="#b8b8b8" stroke-width="5" stroke-linecap="round"/>
+                    
+                    <!-- Hand (left) -->
+                    <ellipse class="bone" data-uberon="UBERON:0002398" data-name="Hand"
+                             cx="88" cy="335" rx="12" ry="18" 
+                             fill="#d8d8d8" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Hand (right) -->
+                    <ellipse class="bone" data-uberon="UBERON:0002398" data-name="Hand"
+                             cx="212" cy="335" rx="12" ry="18" 
+                             fill="#d8d8d8" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Foot (left) -->
+                    <ellipse class="bone" data-uberon="UBERON:0002387" data-name="Foot"
+                             cx="118" cy="525" rx="15" ry="20" 
+                             fill="#d8d8d8" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Foot (right) -->
+                    <ellipse class="bone" data-uberon="UBERON:0002387" data-name="Foot"
+                             cx="182" cy="525" rx="15" ry="20" 
+                             fill="#d8d8d8" stroke="#333" stroke-width="2"/>
+                </svg>
+            </div>
+
+            <div class="info-panel" id="infoPanel">
+                <div class="placeholder">
+                    👆 Click on any bone in the skeleton to view details
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const bones = document.querySelectorAll('.bone');
+            const infoPanel = document.getElementById('infoPanel');
+            let selectedBone = null;
+
+            bones.forEach(bone => {
+                bone.addEventListener('click', function() {
+                    const uberonId = this.getAttribute('data-uberon');
+                    const boneName = this.getAttribute('data-name');
+                    
+                    // Remove selected class from previously selected bone
+                    if (selectedBone) {
+                        selectedBone.classList.remove('selected');
+                    }
+                    
+                    // Add selected class to clicked bone
+                    this.classList.add('selected');
+                    selectedBone = this;
+                    
+                    // Show loading state
+                    infoPanel.innerHTML = `
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>Loading data for ${boneName}...</p>
+                        </div>
+                    `;
+                    
+                    // Fetch bone data
+                    fetch(`/api/bone/${encodeURIComponent(uberonId)}/`)
+                        .then(response => response.json())
+                        .then(data => displayBoneInfo(data, boneName))
+                        .catch(error => {
+                            console.error('Error:', error);
+                            infoPanel.innerHTML = `
+                                <div class="placeholder">
+                                    ⚠️ Error loading data. Please try again.
+                                </div>
+                            `;
+                        });
+                });
+            });
+
+            function displayBoneInfo(data, boneName) {
+                let html = `
+                    <div class="bone-info">
+                        <h2>${boneName}</h2>
+                        <div class="uberon-badge">Uberon ID: ${data.uberon_id}</div>
+                `;
+
+                // Display fossils
+                html += `
+                    <div class="section">
+                        <h3>
+                            🦴 Fossils 
+                            <span class="count-badge">${data.fossil_count}</span>
+                        </h3>
+                `;
+
+                if (data.fossils.length > 0) {
+                    data.fossils.forEach(fossil => {
+                        html += `
+                            <div class="fossil-card">
+                                <h4>${fossil.fossil_id}</h4>
+                                <p><span class="label">Taxon:</span> ${fossil.taxon || 'N/A'}</p>
+                                <p><span class="label">Element:</span> ${fossil.element_type || 'N/A'}</p>
+                                <p><span class="label">Region:</span> ${fossil.anatomical_region || 'N/A'}</p>
+                                ${fossil.age ? `<p><span class="label">Age:</span> ${fossil.age}</p>` : ''}
+                                ${fossil.short_description ? `<p><span class="label">Description:</span> ${fossil.short_description}</p>` : ''}
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<p style="color: #7f8c8d; font-style: italic;">No fossils found for this bone.</p>';
+                }
+
+                html += '</div>';
+
+                // Display characters
+                html += `
+                    <div class="section">
+                        <h3>
+                            📊 Characters 
+                            <span class="count-badge">${data.character_count}</span>
+                        </h3>
+                `;
+
+                if (data.characters.length > 0) {
+                    data.characters.forEach(character => {
+                        html += `
+                            <div class="character-card">
+                                <h4>${character.character}</h4>
+                                <p><span class="label">Element:</span> ${character.skeletal_element || 'N/A'}</p>
+                                <p><span class="label">Region:</span> ${character.anatomical_region || 'N/A'}</p>
+                                <p><span class="label">Type:</span> ${character.character_type || 'N/A'}</p>
+                                ${character.description ? `<p><span class="label">Description:</span> ${character.description}</p>` : ''}
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<p style="color: #7f8c8d; font-style: italic;">No characters found for this bone.</p>';
+                }
+
+                html += '</div></div>';
+                infoPanel.innerHTML = html;
+            }
+        });
+    </script>
+</body>
+</html>

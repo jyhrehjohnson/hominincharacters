@@ -1,0 +1,112 @@
+{% extends 'hcdb/base.html' %}
+
+{% block title %}Characters - Hominin Characters Database{% endblock %}
+
+{% block content %}
+<h1>Morphological Characters</h1>
+
+<div class="filters">
+    <form method="get">
+        <div class="filter-group">
+            <label for="region">Anatomical Region:</label>
+            <select name="region" id="region">
+                <option value="">All Regions</option>
+                {% for code, name in regions.items %}
+                    <option value="{{ code }}" {% if code == current_region %}selected{% endif %}>
+                        {{ name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="type">Character Type:</label>
+            <select name="type" id="type">
+                <option value="">All Types</option>
+                {% for code, name in char_types.items %}
+                    <option value="{{ code }}" {% if code == current_type %}selected{% endif %}>
+                        {{ name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="search">Search:</label>
+            <input type="text" name="search" id="search" placeholder="Search characters..." value="{{ search_query }}">
+        </div>
+
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <button type="submit" class="btn">Filter</button>
+        </div>
+
+        {% if current_region or current_type or search_query %}
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <a href="{% url 'hcdb:character_list' %}" class="btn btn-secondary">Clear Filters</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card">
+    <p>Showing {{ page_obj.paginator.count }} character(s)</p>
+</div>
+
+<div class="grid">
+    {% for character in characters %}
+    <div class="card">
+        <h3 style="color: #2c3e50; margin-bottom: 10px;">
+            <a href="{% url 'hcdb:character_detail' character.pk %}" style="color: #2c3e50; text-decoration: none;">
+                {{ character.character }}
+            </a>
+        </h3>
+        
+        {% if character.skeletal_element %}
+        <p><strong>Element:</strong> {{ character.skeletal_element }}</p>
+        {% endif %}
+        
+        {% if character.get_anatomical_region_display %}
+        <span class="badge">{{ character.get_anatomical_region_display }}</span>
+        {% endif %}
+        
+        {% if character.get_character_type_display %}
+        <span class="badge badge-success">{{ character.get_character_type_display }}</span>
+        {% endif %}
+        
+        {% if character.description %}
+        <p style="margin-top: 10px; color: #555; font-size: 0.9em;">
+            {{ character.description|truncatewords:20 }}
+        </p>
+        {% endif %}
+        
+        <p style="margin-top: 10px;">
+            <strong>States:</strong> {{ character.states.count }}
+        </p>
+        
+        <a href="{% url 'hcdb:character_detail' character.pk %}" class="btn" style="margin-top: 10px;">View Details</a>
+    </div>
+    {% empty %}
+    <div class="card" style="grid-column: 1/-1; text-align: center; color: #999;">
+        <p>No characters found matching your criteria.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% if is_paginated %}
+<div class="pagination">
+    {% if page_obj.has_previous %}
+        <a href="?page=1{% if current_region %}&region={{ current_region }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">First</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+    {% endif %}
+
+    <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+    {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Last</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

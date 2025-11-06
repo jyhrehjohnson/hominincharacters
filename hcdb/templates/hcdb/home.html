@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+{% extends 'hcdb/base.html' %}
+
+{% block title %}Home - Hominin Characters Database{% endblock %}
+
+<body>
+
+{% block content %}
+<div class="card">
+    <h1>Welcome to the Hominin Characters Database</h1>
+    <p style="margin-top: 15px; font-size: 1.1em; color: #555;">
+        A comprehensive database of hominin morphological characters and fossil specimens, 
+        documenting anatomical features across various taxonomic groups.
+    </p>
+</div>
+
+<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+    <div class="card" style="text-align: center;">
+        <h2 style="color: #3498db; font-size: 3em; margin-bottom: 10px;">{{ total_characters }}</h2>
+        <p style="font-size: 1.2em; color: #555;">Characters</p>
+        <a href="{% url 'hcdb:character_list' %}" class="btn" style="margin-top: 15px;">Browse Characters</a>
+    </div>
+
+    <div class="card" style="text-align: center;">
+        <h2 style="color: #27ae60; font-size: 3em; margin-bottom: 10px;">{{ total_fossils }}</h2>
+        <p style="font-size: 1.2em; color: #555;">Fossil Specimens</p>
+        <a href="{% url 'hcdb:fossil_list' %}" class="btn" style="margin-top: 15px;">Browse Fossils</a>
+    </div>
+
+    <div class="card" style="text-align: center;">
+        <h2 style="color: #f39c12; font-size: 3em; margin-bottom: 10px;">{{ total_states }}</h2>
+        <p style="font-size: 1.2em; color: #555;">Character States</p>
+        <a href="{% url 'hcdb:browse_by_taxon' %}" class="btn" style="margin-top: 15px;">Browse by Taxon</a>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 30px;">
+    <h2>About This Database</h2>
+    <p style="margin-top: 15px; line-height: 1.8;">
+        This database contains detailed information about morphological characters used in hominin systematics 
+        and phylogenetic analysis. Each character is documented with its states, anatomical locations, and 
+        the fossil specimens that exhibit those features.
+    </p>
+    
+    <h3 style="margin-top: 25px; color: #2c3e50;">Quick Links</h3>
+    <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{% url 'hcdb:character_list' %}?region=CR" class="btn btn-secondary">Cranial Characters</a>
+        <a href="{% url 'hcdb:character_list' %}?region=DEN" class="btn btn-secondary">Dental Characters</a>
+        <a href="{% url 'hcdb:character_list' %}?region=PC" class="btn btn-secondary">Postcranial Characters</a>
+        <a href="{% url 'hcdb:browse_by_taxon' %}" class="btn btn-secondary">Browse by Species</a>
+    </div>
+</div>
+{% endblock %}
+</html>

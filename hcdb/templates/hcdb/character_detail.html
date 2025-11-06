@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ character.character }} - Character Details</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .back-link {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .back-link:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .page-title {
+            font-size: 2.5em;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .character-overview {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        .overview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .character-title {
+            flex: 1;
+            min-width: 300px;
+        }
+        .character-name-large {
+            font-size: 2em;
+            font-weight: bold;
+            color: #185a9d;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+        .character-element-large {
+            font-size: 1.1em;
+            color: #666;
+            font-weight: 500;
+        }
+        .character-badges {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+        .badge-region {
+            background: #e1f5fe;
+            color: #01579b;
+        }
+        .badge-type {
+            background: #f3e5f5;
+            color: #4a148c;
+        }
+        .badge-designation {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .badge-significance {
+            background: #e8f5e9;
+            color: #1b5e20;
+        }
+        .badge-multistate {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .info-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #43cea2;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .info-value {
+            color: #333;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        .description-section {
+            margin-top: 25px;
+            padding: 25px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 8px;
+            border-left: 4px solid #185a9d;
+        }
+        .description-title {
+            font-weight: 600;
+            color: #185a9d;
+            margin-bottom: 12px;
+            font-size: 1.2em;
+        }
+        .description-text {
+            line-height: 1.8;
+            color: #333;
+        }
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .section-title {
+            font-size: 1.5em;
+            color: #185a9d;
+            font-weight: 600;
+        }
+        .section-count {
+            background: #43cea2;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .states-grid {
+            display: grid;
+            gap: 15px;
+        }
+        .state-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #43cea2;
+            transition: all 0.3s;
+        }
+        .state-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .state-card.derived {
+            border-left-color: #ff6b6b;
+            background: #fff5f5;
+        }
+        .state-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+            gap: 15px;
+        }
+        .state-name {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #185a9d;
+            flex: 1;
+        }
+        .state-meta {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .state-code {
+            background: white;
+            color: #185a9d;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-weight: 600;
+            font-size: 0.85em;
+            border: 2px solid #43cea2;
+        }
+        .state-order {
+            background: #e0e0e0;
+            color: #555;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .derived-badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .state-description {
+            color: #555;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+        .state-notes {
+            margin-top: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 5px;
+            font-size: 0.9em;
+            color: #666;
+            font-style: italic;
+        }
+        .fossils-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .fossils-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .fossils-table td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .fossils-table tr:hover {
+            background: #f8f9fa;
+        }
+        .fossil-link {
+            color: #185a9d;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .fossil-link:hover {
+            color: #43cea2;
+            text-decoration: underline;
+        }
+        .taxon-badge {
+            background: #e1f5fe;
+            color: #01579b;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
+        .metadata {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .metadata-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+        .metadata-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .metadata-value {
+            color: #333;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        @media (max-width: 768px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            .overview-header {
+                flex-direction: column;
+            }
+            .fossils-table {
+                font-size: 0.9em;
+            }
+            .fossils-table th,
+            .fossils-table td {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div>
+                <div class="page-title">Character Details</div>
+                <div style="opacity: 0.9;">Comprehensive Character Information</div>
+            </div>
+            <a href="{% url 'hcdb:character_list' %}" class="back-link">← Back to List</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Character Overview -->
+        <div class="character-overview">
+            <div class="overview-header">
+                <div class="character-title">
+                    <div class="character-name-large">🧬 {{ character.character }}</div>
+                    {% if character.skeletal_element %}
+                        <div class="character-element-large">📍 {{ character.skeletal_element }}</div>
+                    {% endif %}
+                </div>
+                <div class="character-badges">
+                    {% if character.anatomical_region %}
+                        <span class="badge badge-region">{{ character.get_anatomical_region_display }}</span>
+                    {% endif %}
+                    {% if character.character_type %}
+                        <span class="badge badge-type">{{ character.get_character_type_display }}</span>
+                    {% endif %}
+                    {% if character.character_designation %}
+                        <span class="badge badge-designation">{{ character.get_character_designation_display }}</span>
+                    {% endif %}
+                    {% if character.character_significance %}
+                        <span class="badge badge-significance">{{ character.get_character_significance_display }}</span>
+                    {% endif %}
+                    {% if character.multistate_type %}
+                        <span class="badge badge-multistate">{{ character.get_multistate_type_display }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-number">{{ states.count }}</div>
+                    <div class="stat-label">Character States</div>
+                </div>
+                <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <div class="stat-number">{{ fossils.count }}</div>
+                    <div class="stat-label">Associated Fossils</div>
+                </div>
+                {% if character.number_of_states %}
+                <div class="stat-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <div class="stat-number">{{ character.number_of_states }}</div>
+                    <div class="stat-label">Defined States</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Character Information -->
+            <div class="info-grid">
+                {% if character.state_code %}
+                <div class="info-card">
+                    <div class="info-label">State Code</div>
+                    <div class="info-value">{{ character.state_code }}</div>
+                </div>
+                {% endif %}
+                {% if character.uberon_ID %}
+                <div class="info-card">
+                    <div class="info-label">UBERON ID</div>
+                    <div class="info-value">{{ character.uberon_ID }}</div>
+                </div>
+                {% endif %}
+                {% if character.taxa_found %}
+                <div class="info-card">
+                    <div class="info-label">Taxa Found</div>
+                    <div class="info-value">{{ character.taxa_found }}</div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if character.description %}
+            <div class="description-section">
+                <div class="description-title">Description</div>
+                <div class="description-text">{{ character.description|linebreaks }}</div>
+            </div>
+            {% endif %}
+
+            {% if character.notes %}
+            <div class="description-section" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);">
+                <div class="description-title" style="color: #d84315;">Notes</div>
+                <div class="description-text">{{ character.notes|linebreaks }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Character States -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Character States</h2>
+                <span class="section-count">{{ states.count }}</span>
+            </div>
+
+            {% if states %}
+                <div class="states-grid">
+                    {% for state in states %}
+                        <div class="state-card {% if state.is_derived %}derived{% endif %}">
+                            <div class="state-header">
+                                <div class="state-name">{{ state.state_name }}</div>
+                                <div class="state-meta">
+                                    <span class="state-code">{{ state.state_code }}</span>
+                                    {% if state.state_order %}
+                                        <span class="state-order">Order: {{ state.state_order }}</span>
+                                    {% endif %}
+                                    {% if state.is_derived %}
+                                        <span class="derived-badge">Derived</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if state.state_description %}
+                                <div class="state-description">{{ state.state_description }}</div>
+                            {% endif %}
+                            {% if state.notes %}
+                                <div class="state-notes">
+                                    <strong>Notes:</strong> {{ state.notes }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-data">
+                    No character states defined for this character yet.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Associated Fossils -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Associated Fossils</h2>
+                <span class="section-count">{{ fossils.count }}</span>
+            </div>
+
+            {% if fossils %}
+                <table class="fossils-table">
+                    <thead>
+                        <tr>
+                            <th>Fossil ID</th>
+                            <th>Taxon</th>
+                            <th>Element Type</th>
+                            <th>Region</th>
+                            <th>Character States</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fossil in fossils %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'hcdb:fossil_detail' fossil.pk %}" class="fossil-link">
+                                        {{ fossil.fossil_id }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if fossil.taxon %}
+                                        <span class="taxon-badge">{{ fossil.get_taxon_display }}</span>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>{{ fossil.element_type|default:"—" }}</td>
+                                <td>{{ fossil.get_anatomical_region_display|default:"—" }}</td>
+                                <td>{{ fossil.character_states.count }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">
+                    No fossils have been associated with this character yet.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Metadata -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Record Metadata</h2>
+            </div>
+            <div class="metadata">
+                <div class="metadata-item">
+                    <span class="metadata-label">Character ID:</span>
+                    <span class="metadata-value">{{ character.id }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Created:</span>
+                    <span class="metadata-value">{{ character.created_at|date:"F d, Y g:i A" }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Last Updated:</span>
+                    <span class="metadata-value">{{ character.updated_at|date:"F d, Y g:i A" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

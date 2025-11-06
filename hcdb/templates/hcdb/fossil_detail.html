@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ fossil.fossil_id }} - Fossil Details</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .back-link {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .back-link:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .page-title {
+            font-size: 2.5em;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .fossil-overview {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        .overview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .fossil-id-large {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .fossil-badges {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+        .badge-taxon {
+            background: #e8eaf6;
+            color: #5568d3;
+        }
+        .badge-region {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+        .badge-age {
+            background: #e0f2f1;
+            color: #00796b;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-value {
+            color: #333;
+            font-size: 1.1em;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .description-section {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .description-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        .description-text {
+            line-height: 1.8;
+            color: #555;
+        }
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .section-title {
+            font-size: 1.5em;
+            color: #667eea;
+            font-weight: 600;
+        }
+        .section-count {
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .character-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .character-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .character-table td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .character-table tr:hover {
+            background: #f8f9fa;
+        }
+        .character-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+        .state-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .state-name {
+            font-weight: 600;
+            color: #333;
+        }
+        .state-code {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .confidence-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .confidence-high {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+        .confidence-medium {
+            background: #fff9c4;
+            color: #f57f17;
+        }
+        .confidence-low {
+            background: #ffccbc;
+            color: #d84315;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
+        .metadata {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .metadata-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+        .metadata-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .metadata-value {
+            color: #333;
+        }
+        @media (max-width: 768px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            .overview-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .character-table {
+                font-size: 0.9em;
+            }
+            .character-table th,
+            .character-table td {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div>
+                <div class="page-title">{{ fossil.fossil_id }}</div>
+                <div style="opacity: 0.9;">Fossil Specimen Details</div>
+            </div>
+            <a href="{% url 'hcdb:fossil_list' %}" class="back-link">← Back to List</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Fossil Overview -->
+        <div class="fossil-overview">
+            <div class="overview-header">
+                <div class="fossil-id-large">🦴 {{ fossil.fossil_id }}</div>
+                <div class="fossil-badges">
+                    {% if fossil.taxon %}
+                        <span class="badge badge-taxon">{{ fossil.get_taxon_display }}</span>
+                    {% endif %}
+                    {% if fossil.anatomical_region %}
+                        <span class="badge badge-region">{{ fossil.get_anatomical_region_display }}</span>
+                    {% endif %}
+                    {% if fossil.age %}
+                        <span class="badge badge-age">{{ fossil.get_age_display }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Element Type</div>
+                    <div class="info-value">{{ fossil.element_type|default:"Not specified" }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Anatomical Region</div>
+                    <div class="info-value">{{ fossil.get_anatomical_region_display|default:"Not specified" }}</div>
+                </div>
+                {% if fossil.uberon_ID %}
+                <div class="info-item">
+                    <div class="info-label">UBERON ID</div>
+                    <div class="info-value">{{ fossil.uberon_ID }}</div>
+                </div>
+                {% endif %}
+                {% if fossil.location %}
+                <div class="info-item">
+                    <div class="info-label">Location</div>
+                    <div class="info-value">{{ fossil.location }}</div>
+                </div>
+                {% endif %}
+                {% if fossil.discovery_date %}
+                <div class="info-item">
+                    <div class="info-label">Discovery Date</div>
+                    <div class="info-value">{{ fossil.discovery_date|date:"F d, Y" }}</div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if fossil.short_description %}
+            <div class="description-section">
+                <div class="description-title">Short Description</div>
+                <div class="description-text">{{ fossil.short_description }}</div>
+            </div>
+            {% endif %}
+
+            {% if fossil.long_description %}
+            <div class="description-section">
+                <div class="description-title">Detailed Description</div>
+                <div class="description-text">{{ fossil.long_description|linebreaks }}</div>
+            </div>
+            {% endif %}
+
+            {% if fossil.notes %}
+            <div class="description-section">
+                <div class="description-title">Additional Notes</div>
+                <div class="description-text">{{ fossil.notes|linebreaks }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Character State Assignments -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Character State Assignments</h2>
+                <span class="section-count">{{ character_state_assignments.count }}</span>
+            </div>
+
+            {% if character_state_assignments %}
+                <table class="character-table">
+                    <thead>
+                        <tr>
+                            <th>Character</th>
+                            <th>State</th>
+                            <th>Confidence</th>
+                            <th>Assigned By</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in character_state_assignments %}
+                            <tr>
+                                <td>
+                                    <div class="character-name">
+                                        {{ assignment.character_state.character.character }}
+                                    </div>
+                                    <div style="font-size: 0.85em; color: #666; margin-top: 5px;">
+                                        {{ assignment.character_state.character.skeletal_element|default:"" }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="state-info">
+                                        <div class="state-name">{{ assignment.character_state.state_name }}</div>
+                                        <div class="state-code">Code: {{ assignment.character_state.state_code }}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if assignment.confidence == 'H' %}
+                                        <span class="confidence-badge confidence-high">High</span>
+                                    {% elif assignment.confidence == 'M' %}
+                                        <span class="confidence-badge confidence-medium">Medium</span>
+                                    {% elif assignment.confidence == 'L' %}
+                                        <span class="confidence-badge confidence-low">Low</span>
+                                    {% else %}
+                                        <span class="confidence-badge">{{ assignment.get_confidence_display|default:"N/A" }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ assignment.assigned_by|default:"—" }}</td>
+                                <td>
+                                    {% if assignment.assigned_date %}
+                                        {{ assignment.assigned_date|date:"M d, Y" }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">
+                    No character state assignments have been made for this fossil yet.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Metadata -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Record Metadata</h2>
+            </div>
+            <div class="metadata">
+                <div class="metadata-item">
+                    <span class="metadata-label">Record ID:</span>
+                    <span class="metadata-value">{{ fossil.id }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Created:</span>
+                    <span class="metadata-value">{{ fossil.created_at|date:"F d, Y g:i A" }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Last Updated:</span>
+                    <span class="metadata-value">{{ fossil.updated_at|date:"F d, Y g:i A" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

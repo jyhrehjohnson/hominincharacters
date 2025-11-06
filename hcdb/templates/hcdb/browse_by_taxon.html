@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse by Taxon - Hominin Characters Database</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .header-content {
+            flex: 1;
+            min-width: 300px;
+        }
+        h1 {
+            font-size: 2.5em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.2);
+            font-weight: 600;
+        }
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.35);
+            transform: translateY(-2px);
+        }
+        .intro-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        .intro-section h2 {
+            color: #fa709a;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+        .intro-section p {
+            color: #666;
+            line-height: 1.6;
+            font-size: 1.1em;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+        .taxa-grid {
+            display: grid;
+            gap: 30px;
+        }
+        .taxon-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        .taxon-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .taxon-header {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 25px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .taxon-title-group {
+            flex: 1;
+            min-width: 250px;
+        }
+        .taxon-code {
+            font-size: 1.2em;
+            font-weight: 600;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        .taxon-name {
+            font-size: 2em;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .taxon-stats {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .taxon-count {
+            background: rgba(255,255,255,0.3);
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+        .taxon-count .number {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .expand-btn {
+            background: white;
+            color: #fa709a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1em;
+        }
+        .expand-btn:hover {
+            background: #f0f0f0;
+            transform: scale(1.05);
+        }
+        .taxon-content {
+            padding: 30px;
+        }
+        .fossils-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .fossil-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #fa709a;
+            transition: all 0.3s;
+        }
+        .fossil-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: #fff;
+        }
+        .fossil-id {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #fa709a;
+            margin-bottom: 10px;
+        }
+        .fossil-details {
+            display: grid;
+            gap: 8px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.95em;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .detail-value {
+            color: #333;
+        }
+        .fossil-description {
+            margin-top: 12px;
+            color: #555;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        .character-count-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            margin-top: 10px;
+            border: 2px solid #fa709a;
+        }
+        .character-count-badge .count {
+            background: #fa709a;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .view-fossil-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .view-fossil-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(250, 112, 154, 0.4);
+        }
+        .view-all-btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        .view-all-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+        .more-fossils {
+            text-align: center;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            color: #666;
+            font-weight: 600;
+        }
+        .no-taxa {
+            text-align: center;
+            padding: 80px 20px;
+            background: white;
+            border-radius: 10px;
+            color: #666;
+        }
+        .no-taxa h2 {
+            color: #fa709a;
+            margin-bottom: 15px;
+            font-size: 2em;
+        }
+        .color-variations {
+            animation: colorShift 10s infinite alternate;
+        }
+        @keyframes colorShift {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(20deg); }
+        }
+        .taxon-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        .info-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .info-box-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-box-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #fa709a;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
+        .section-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #fa709a, transparent);
+            margin: 30px 0;
+        }
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            .taxon-name {
+                font-size: 1.5em;
+            }
+            .fossils-preview {
+                grid-template-columns: 1fr;
+            }
+            header .container {
+                flex-direction: column;
+                text-align: center;
+            }
+            .taxon-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            .taxon-stats {
+                justify-content: center;
+            }
+        }
+    </style>
+    <script>
+        function toggleTaxonContent(taxonCode) {
+            const content = document.getElementById('content-' + taxonCode);
+            const btn = document.getElementById('btn-' + taxonCode);
+
+            if (content.style.display === 'none' || content.style.display === '') {
+                content.style.display = 'block';
+                btn.textContent = '▲ Collapse';
+            } else {
+                content.style.display = 'none';
+                btn.textContent = '▼ Expand';
+            }
+        }
+
+        // Initialize all sections as collapsed on load
+        window.addEventListener('DOMContentLoaded', function() {
+            const allContents = document.querySelectorAll('[id^="content-"]');
+            allContents.forEach(content => {
+                content.style.display = 'none';
+            });
+        });
+    </script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <h1>🦴 Browse by Taxon</h1>
+                <p class="subtitle">Explore hominin fossils organized by taxonomic classification</p>
+            </div>
+            <nav class="nav-links">
+                <a href="{% url 'hcdb:home' %}">🏠 Home</a>
+                <a href="{% url 'hcdb:character_list' %}">🧬 Characters</a>
+                <a href="{% url 'hcdb:fossil_list' %}">🦴 Fossils</a>
+                <a href="{% url 'hcdb:search' %}">🔍 Search</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Introduction -->
+        <div class="intro-section">
+            <h2>Taxonomic Browser</h2>
+            <p>
+                Explore the database organized by hominin taxa. Each taxon displays its associated fossils
+                with detailed character state information. Click "Expand" to view fossil specimens for each taxon.
+            </p>
+        </div>
+
+        <!-- Statistics Overview -->
+        {% if taxa_data %}
+            <div class="stats-overview">
+                <div class="stat-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                    <div class="stat-number">{{ taxa_data|length }}</div>
+                    <div class="stat-label">Taxa with Fossils</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);">
+                    <div class="stat-number">
+                        {% widthratio taxa_data|length 1 100|add:"0" %}
+                        {% comment %}Calculate total fossils{% endcomment %}
+                        {% with total=0 %}
+                            {% for taxon in taxa_data %}
+                                {% widthratio total 1 1|add:taxon.fossil_count as total %}
+                            {% endfor %}
+                        {% endwith %}
+                    </div>
+                    <div class="stat-label">Total Specimens</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <div class="stat-number">∞</div>
+                    <div class="stat-label">Characters Available</div>
+                </div>
+            </div>
+
+            <!-- Taxa Sections -->
+            <div class="taxa-grid">
+                {% for taxon in taxa_data %}
+                    <div class="taxon-section">
+                        <!-- Taxon Header -->
+                        <div class="taxon-header">
+                            <div class="taxon-title-group">
+                                <div class="taxon-code">{{ taxon.code }}</div>
+                                <div class="taxon-name">{{ taxon.name }}</div>
+                            </div>
+                            <div class="taxon-stats">
+                                <div class="taxon-count">
+                                    <span class="number">{{ taxon.fossil_count }}</span>
+                                    <span>Fossil{{ taxon.fossil_count|pluralize }}</span>
+                                </div>
+                                <button class="expand-btn" id="btn-{{ taxon.code }}" onclick="toggleTaxonContent('{{ taxon.code }}')">
+                                    ▼ Expand
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Taxon Content (Initially Hidden) -->
+                        <div class="taxon-content" id="content-{{ taxon.code }}">
+                            <!-- Taxon Info Grid -->
+                            <div class="taxon-info-grid">
+                                <div class="info-box">
+                                    <div class="info-box-label">Total Fossils</div>
+                                    <div class="info-box-value">{{ taxon.fossil_count }}</div>
+                                </div>
+                                <div class="info-box">
+                                    <div class="info-box-label">Showing Preview</div>
+                                    <div class="info-box-value">{{ taxon.fossils|length }}</div>
+                                </div>
+                                <div class="info-box">
+                                    <div class="info-box-label">Taxon Code</div>
+                                    <div class="info-box-value">{{ taxon.code }}</div>
+                                </div>
+                            </div>
+
+                            <div class="section-divider"></div>
+
+                            <!-- Fossils Preview -->
+                            {% if taxon.fossils %}
+                                <div class="fossils-preview">
+                                    {% for fossil in taxon.fossils %}
+                                        <div class="fossil-card">
+                                            <div class="fossil-id">{{ fossil.fossil_id }}</div>
+
+                                            <div class="fossil-details">
+                                                {% if fossil.element_type %}
+                                                    <div class="detail-row">
+                                                        <span class="detail-label">Element:</span>
+                                                        <span class="detail-value">{{ fossil.element_type }}</span>
+                                                    </div>
+                                                {% endif %}
+                                                {% if fossil.anatomical_region %}
+                                                    <div class="detail-row">
+                                                        <span class="detail-label">Region:</span>
+                                                        <span class="detail-value">{{ fossil.get_anatomical_region_display }}</span>
+                                                    </div>
+                                                {% endif %}
+                                                {% if fossil.age %}
+                                                    <div class="detail-row">
+                                                        <span class="detail-label">Age:</span>
+                                                        <span class="detail-value">{{ fossil.get_age_display }}</span>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+
+                                            {% if fossil.short_description %}
+                                                <div class="fossil-description">
+                                                    {{ fossil.short_description|truncatewords:15 }}
+                                                </div>
+                                            {% endif %}
+
+                                            <div class="character-count-badge">
+                                                <span>Character States:</span>
+                                                <span class="count">{{ fossil.character_states.count }}</span>
+                                            </div>
+
+                                            <a href="{% url 'hcdb:fossil_detail' fossil.pk %}" class="view-fossil-btn">
+                                                View Details →
+                                            </a>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Show more link if there are more fossils -->
+                                {% if taxon.fossil_count > 5 %}
+                                    <div class="more-fossils">
+                                        <p>Showing 5 of {{ taxon.fossil_count }} fossils</p>
+                                        <a href="{% url 'hcdb:fossil_list' %}?taxon={{ taxon.code }}" class="view-all-btn">
+                                            View All {{ taxon.fossil_count }} Fossils for {{ taxon.name }} →
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="empty-state">
+                                    No fossils available for this taxon.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- No Taxa Message -->
+            <div class="no-taxa">
+                <h2>No Taxa Found</h2>
+                <p>There are currently no taxa with associated fossils in the database.</p>
+                <p style="margin-top: 20px;">
+                    <a href="{% url 'hcdb:home' %}" class="view-all-btn">Return to Home</a>
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
