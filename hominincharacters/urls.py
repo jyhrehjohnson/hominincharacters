@@ -14,17 +14,12 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.urls import include, path
 from django.contrib import admin
-from django.conf.urls.static import static
+from django.urls import path, include
 from django.conf import settings
+from django.conf.urls.static import static
 
-#  set the header of the admin page
-admin.site.site_header = "Known Hominin Characters Database"
-
-#  set the url to gather information from the set paths
 urlpatterns = [
-                  path('hcdb/', include('hcdb.urls')),
-                  path('admin/', admin.site.urls),
-              ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  # allow uploaded images to be displayed
-
+    path('', include('hcdb.urls')),  # Public facing site at root
+    path('admin/', admin.site.urls),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

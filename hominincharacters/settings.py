@@ -31,7 +31,8 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'hcdb',
+    'hcdb.apps.hcdbConfig',
+    'import_export',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -123,3 +124,7 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Import-Export settings
+IMPORT_EXPORT_USE_TRANSACTIONS = True  # Ensures data integrity
+IMPORT_EXPORT_SKIP_ADMIN_LOG = False   # Log all imports
