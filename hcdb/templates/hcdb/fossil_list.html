@@ -11,304 +11,313 @@
             box-sizing: border-box;
         }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f7fa;
+            color: #2d3748;
+            line-height: 1.6;
         }
-        .container {
+        .navbar {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
-        }
-        header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px 0;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        header .container {
+            padding: 0 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        h1 {
-            font-size: 2em;
-            font-weight: 600;
-        }
-        .nav-links {
-            display: flex;
-            gap: 20px;
-        }
-        .nav-links a {
-            color: white;
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2563eb;
             text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            transition: background 0.3s;
         }
-        .nav-links a:hover {
-            background: rgba(255,255,255,0.2);
+        .navbar-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+        .navbar-links a {
+            color: #4b5563;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .navbar-links a:hover {
+            color: #2563eb;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 20px;
+        }
+        .page-header {
+            margin-bottom: 2rem;
+        }
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+        .page-subtitle {
+            color: #64748b;
+            font-size: 1rem;
         }
         .filters-section {
             background: white;
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .filters-title {
-            font-size: 1.2em;
-            margin-bottom: 20px;
-            color: #667eea;
-            font-weight: 600;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
         }
         .filters-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
         .filter-group {
             display: flex;
             flex-direction: column;
+            gap: 0.5rem;
         }
         .filter-group label {
             font-weight: 600;
-            margin-bottom: 8px;
-            color: #555;
-            font-size: 0.9em;
+            color: #475569;
+            font-size: 0.875rem;
         }
         .filter-group select,
         .filter-group input[type="text"] {
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 1em;
-            transition: border-color 0.3s;
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            transition: border-color 0.2s;
         }
         .filter-group select:focus,
         .filter-group input[type="text"]:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #2563eb;
         }
         .filter-actions {
             display: flex;
-            gap: 10px;
-            margin-top: 20px;
+            gap: 0.5rem;
+            margin-top: 1rem;
         }
         .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 5px;
-            font-size: 1em;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            font-size: 0.875rem;
             cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            border: none;
         }
         .btn-primary {
-            background: #667eea;
+            background: #2563eb;
             color: white;
         }
         .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            background: #1d4ed8;
         }
         .btn-secondary {
-            background: #6c757d;
-            color: white;
+            background: #e2e8f0;
+            color: #475569;
         }
         .btn-secondary:hover {
-            background: #5a6268;
+            background: #cbd5e1;
         }
         .results-info {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-        }
-        .results-count {
-            font-weight: 600;
-            color: #667eea;
+            margin-bottom: 1rem;
+            color: #64748b;
         }
         .fossils-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
+            gap: 1rem;
         }
         .fossil-card {
             background: white;
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: all 0.3s;
-            border-left: 4px solid #667eea;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            border-left: 3px solid #2563eb;
         }
         .fossil-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         .fossil-header {
             display: flex;
             justify-content: space-between;
             align-items: start;
-            margin-bottom: 15px;
+            margin-bottom: 1rem;
+            gap: 1rem;
+        }
+        .fossil-title {
+            flex: 1;
         }
         .fossil-id {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: #667eea;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
         }
-        .fossil-taxon {
-            background: #e8eaf6;
-            color: #5568d3;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-        .fossil-details {
-            display: grid;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        .detail-label {
-            font-weight: 600;
-            color: #666;
-            font-size: 0.9em;
-        }
-        .detail-value {
-            color: #333;
-            text-align: right;
-        }
-        .fossil-description {
-            color: #666;
-            line-height: 1.6;
-            margin: 15px 0;
-            font-size: 0.95em;
-        }
-        .character-count {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #f8f9fa;
-            padding: 8px 12px;
-            border-radius: 5px;
-            font-size: 0.9em;
-            margin-top: 10px;
-        }
-        .character-count .count {
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-weight: bold;
-        }
-        .view-details-btn {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-align: center;
+        .fossil-link {
+            color: #2563eb;
             text-decoration: none;
-            border-radius: 5px;
-            margin-top: 15px;
             font-weight: 600;
-            transition: all 0.3s;
         }
-        .view-details-btn:hover {
-            transform: scale(1.02);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        .fossil-link:hover {
+            text-decoration: underline;
+        }
+        .fossil-element {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+        .fossil-badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .badge-taxon {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .badge-region {
+            background: #fce7f3;
+            color: #9f1239;
+        }
+        .badge-side {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+        .fossil-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .info-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .info-value {
+            color: #1e293b;
+            font-weight: 500;
         }
         .pagination {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
-            margin: 40px 0;
+            gap: 0.5rem;
+            margin-top: 2rem;
         }
         .pagination a,
         .pagination span {
-            padding: 10px 16px;
-            background: white;
-            border-radius: 5px;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
             text-decoration: none;
-            color: #667eea;
-            font-weight: 600;
-            transition: all 0.3s;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        .pagination a {
+            background: white;
+            color: #2563eb;
+            border: 1px solid #cbd5e1;
         }
         .pagination a:hover {
-            background: #667eea;
-            color: white;
-            transform: translateY(-2px);
+            background: #f1f5f9;
         }
         .pagination .current {
-            background: #667eea;
+            background: #2563eb;
             color: white;
+            border: 1px solid #2563eb;
         }
         .no-results {
             text-align: center;
-            padding: 60px 20px;
+            padding: 3rem;
             background: white;
-            border-radius: 10px;
-            color: #666;
-        }
-        .no-results h2 {
-            margin-bottom: 10px;
-            color: #667eea;
+            border-radius: 0.5rem;
+            color: #94a3b8;
         }
         @media (max-width: 768px) {
-            .fossils-grid {
-                grid-template-columns: 1fr;
+            .navbar-links {
+                gap: 1rem;
             }
             .filters-grid {
                 grid-template-columns: 1fr;
             }
-            header .container {
+            .fossil-header {
                 flex-direction: column;
-                gap: 15px;
             }
         }
     </style>
 </head>
 <body>
-    <header>
+    <nav class="navbar">
         <div class="container">
-            <h1>🦴 Fossil Database</h1>
-            <nav class="nav-links">
-                <a href="{% url 'hcdb:home' %}">Home</a>
+            <a href="{% url 'hcdb:home' %}" class="navbar-brand">🧬 Hominin Characters</a>
+            <div class="navbar-links">
                 <a href="{% url 'hcdb:character_list' %}">Characters</a>
-                <a href="{% url 'hcdb:browse_by_taxon' %}">By Taxon</a>
-                <a href="{% url 'hcdb:search' %}">Search</a>
-            </nav>
+                <a href="{% url 'hcdb:fossil_list' %}">Fossils</a>
+                <a href="{% url 'hcdb:browse_by_taxon' %}">Browse by Taxon</a>
+            </div>
         </div>
-    </header>
+    </nav>
 
     <div class="container">
-        <!-- Filters Section -->
+        <div class="page-header">
+            <h1 class="page-title">Fossil Database</h1>
+            <p class="page-subtitle">Browse and search hominin fossil specimens</p>
+        </div>
+
         <div class="filters-section">
-            <h2 class="filters-title">🔍 Filter Fossils</h2>
-            <form method="get" action="">
+            <form method="get" action="{% url 'hcdb:fossil_list' %}">
                 <div class="filters-grid">
                     <div class="filter-group">
+                        <label for="search">Search Fossils</label>
+                        <input type="text"
+                               id="search"
+                               name="search"
+                               placeholder="Search by ID, element, or site..."
+                               value="{{ search_query }}">
+                    </div>
+
+                    <div class="filter-group">
                         <label for="taxon">Taxon</label>
-                        <select name="taxon" id="taxon">
+                        <select id="taxon" name="taxon">
                             <option value="">All Taxa</option>
-                            {% for code, name in taxa.items %}
-                                <option value="{{ code }}" {% if current_taxon == code %}selected{% endif %}>
-                                    {{ name }}
+                            {% for value, label in taxa.items %}
+                                <option value="{{ value }}" {% if current_taxon == value %}selected{% endif %}>
+                                    {{ label }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -316,21 +325,26 @@
 
                     <div class="filter-group">
                         <label for="region">Anatomical Region</label>
-                        <select name="region" id="region">
+                        <select id="region" name="region">
                             <option value="">All Regions</option>
-                            {% for code, name in regions.items %}
-                                <option value="{{ code }}" {% if current_region == code %}selected{% endif %}>
-                                    {{ name }}
+                            {% for value, label in regions.items %}
+                                <option value="{{ value }}" {% if current_region == value %}selected{% endif %}>
+                                    {{ label }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
 
                     <div class="filter-group">
-                        <label for="search">Search</label>
-                        <input type="text" name="search" id="search"
-                               placeholder="Fossil ID, element, or description..."
-                               value="{{ search_query }}">
+                        <label for="side">Side</label>
+                        <select id="side" name="side">
+                            <option value="">All Sides</option>
+                            {% for value, label in sides.items %}
+                                <option value="{{ value }}" {% if current_side == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
 
@@ -341,89 +355,81 @@
             </form>
         </div>
 
-        <!-- Results Info -->
         <div class="results-info">
-            <div class="results-count">
-                Found {{ page_obj.paginator.count }} fossil{{ page_obj.paginator.count|pluralize }}
-            </div>
-            <div>
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-            </div>
+            <span>{{ page_obj.paginator.count }} fossil(s) found</span>
+            {% if page_obj.has_other_pages %}
+                <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            {% endif %}
         </div>
 
-        <!-- Fossils Grid -->
         {% if fossils %}
             <div class="fossils-grid">
                 {% for fossil in fossils %}
                     <div class="fossil-card">
                         <div class="fossil-header">
-                            <div class="fossil-id">{{ fossil.fossil_id }}</div>
-                            <div class="fossil-taxon">{{ fossil.get_taxon_display|default:"N/A" }}</div>
+                            <div class="fossil-title">
+                                <div class="fossil-id">
+                                    <a href="{% url 'hcdb:fossil_detail' fossil.pk %}" class="fossil-link">
+                                        {{ fossil.fossil_id }}
+                                    </a>
+                                </div>
+                                {% if fossil.element_type %}
+                                    <div class="fossil-element">{{ fossil.element_type }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="fossil-badges">
+                                {% if fossil.taxon %}
+                                    <span class="badge badge-taxon">{{ fossil.get_taxon_display }}</span>
+                                {% endif %}
+                                {% if fossil.anatomical_region %}
+                                    <span class="badge badge-region">{{ fossil.get_anatomical_region_display }}</span>
+                                {% endif %}
+                                {% if fossil.side %}
+                                    <span class="badge badge-side">{{ fossil.get_side_display }}</span>
+                                {% endif %}
+                            </div>
                         </div>
 
-                        <div class="fossil-details">
-                            <div class="detail-row">
-                                <span class="detail-label">Element Type:</span>
-                                <span class="detail-value">{{ fossil.element_type|default:"Not specified" }}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Region:</span>
-                                <span class="detail-value">{{ fossil.get_anatomical_region_display|default:"N/A" }}</span>
-                            </div>
-                            {% if fossil.age %}
-                            <div class="detail-row">
-                                <span class="detail-label">Age:</span>
-                                <span class="detail-value">{{ fossil.get_age_display }}</span>
-                            </div>
+                        <div class="fossil-info">
+                            {% if fossil.site %}
+                                <div class="info-item">
+                                    <span class="info-label">Site</span>
+                                    <span class="info-value">{{ fossil.site }}</span>
+                                </div>
                             {% endif %}
-                            {% if fossil.uberon_ID %}
-                            <div class="detail-row">
-                                <span class="detail-label">UBERON ID:</span>
-                                <span class="detail-value">{{ fossil.uberon_ID }}</span>
-                            </div>
+                            {% if fossil.country %}
+                                <div class="info-item">
+                                    <span class="info-label">Country</span>
+                                    <span class="info-value">{{ fossil.country }}</span>
+                                </div>
                             {% endif %}
-                        </div>
-
-                        {% if fossil.short_description %}
-                            <div class="fossil-description">
-                                {{ fossil.short_description|truncatewords:25 }}
+                            <div class="info-item">
+                                <span class="info-label">Character States</span>
+                                <span class="info-value">{{ fossil.character_states.count }}</span>
                             </div>
-                        {% endif %}
-
-                        <div class="character-count">
-                            <span>Character States:</span>
-                            <span class="count">{{ fossil.character_states.count }}</span>
                         </div>
-
-                        <a href="{% url 'hcdb:fossil_detail' fossil.pk %}" class="view-details-btn">
-                            View Full Details →
-                        </a>
                     </div>
                 {% endfor %}
             </div>
 
-            <!-- Pagination -->
             {% if page_obj.has_other_pages %}
                 <div class="pagination">
                     {% if page_obj.has_previous %}
-                        <a href="?page=1{% if current_taxon %}&taxon={{ current_taxon }}{% endif %}{% if current_region %}&region={{ current_region }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">« First</a>
-                        <a href="?page={{ page_obj.previous_page_number }}{% if current_taxon %}&taxon={{ current_taxon }}{% endif %}{% if current_region %}&region={{ current_region }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">‹ Previous</a>
+                        <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if current_taxon %}&taxon={{ current_taxon }}{% endif %}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_side %}&side={{ current_side }}{% endif %}">First</a>
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_taxon %}&taxon={{ current_taxon }}{% endif %}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_side %}&side={{ current_side }}{% endif %}">Previous</a>
                     {% endif %}
 
-                    <span class="current">
-                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-                    </span>
+                    <span class="current">{{ page_obj.number }}</span>
 
                     {% if page_obj.has_next %}
-                        <a href="?page={{ page_obj.next_page_number }}{% if current_taxon %}&taxon={{ current_taxon }}{% endif %}{% if current_region %}&region={{ current_region }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next ›</a>
-                        <a href="?page={{ page_obj.paginator.num_pages }}{% if current_taxon %}&taxon={{ current_taxon }}{% endif %}{% if current_region %}&region={{ current_region }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Last »</a>
+                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_taxon %}&taxon={{ current_taxon }}{% endif %}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_side %}&side={{ current_side }}{% endif %}">Next</a>
+                        <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_taxon %}&taxon={{ current_taxon }}{% endif %}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_side %}&side={{ current_side }}{% endif %}">Last</a>
                     {% endif %}
                 </div>
             {% endif %}
         {% else %}
             <div class="no-results">
-                <h2>No Fossils Found</h2>
-                <p>Try adjusting your filters or search terms.</p>
+                <p>No fossils found matching your criteria.</p>
             </div>
         {% endif %}
     </div>
