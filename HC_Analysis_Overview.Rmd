@@ -9,7 +9,7 @@ output:
     toc_float: true
     code_folding: hide
 ---
-
+#When you data comes make sure to input
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,          # code is folded in the HTML; set FALSE to hide entirely
                       message = FALSE, warning = FALSE,
