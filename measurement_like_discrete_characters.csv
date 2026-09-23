@@ -1,0 +1,59 @@
+"id","character","skeletal_element","number_of_states"
+29,"Separation of molar and premolar cusp apices","Mandible",NA
+35,"External auditory meatus size","Temporal",2
+36,"Separation of mandibular tooth rows","Mandible",NA
+37,"Configuration of the superior orbital fissure","Orbit",2
+38,"Size of Longus capitis insertion","Occipital",NA
+39,"Height of articular eminence above occlusal plane","Unscored",NA
+41,"Depth of subarcuate fossa","Temporal",NA
+42,"Orientation and length of the post-incisive planum","Mandible",NA
+64,"Mandibular corpus depth along tooth row","Mandible",3
+69,"Cranial vault thickness","Vault",3
+72,"Height of calvaria relative to orbits","Vault",3
+73,"Maximum cranial breadth","Vault",3
+80,"Upper facial breadth","Face",4
+102,"Supraorbital thickness gradient","Frontal",2
+108,"Interorbital breadth","Orbit",2
+114,"Inferior width of projecting nasal bone","Nasal",3
+119,"Subnasal length","Maxilla",3
+122,"External palate breadth","Palate",3
+126,"Anterior palate depth","Palate",2
+132,"Maxillary sinus size","Maxilla",2
+138,"Malar diagonal length","Zygomatic",3
+140,"Zygomatic insertion height","Zygomatic",2
+145,"Masseter origin height","Zygomatic",2
+154,"Temporal fossae size","Temporal",3
+164,"Integration of entoglenoid formation with articular tubercle","Temporal",2
+166,"Width between the tympanic plate and entoglenoid process","Temporal",3
+169,"Subarcuate fossa depth","Temporal",3
+176,"Mandibular fossa length","Temporal",2
+177,"Mandibular fossa depth","Temporal",2
+182,"Postglenoid process size","Temporal",3
+184,"Vaginal process size","Temporal",2
+200,"Squamotympanic fissure depth","Temporal",2
+203,"Mastoid process size","Temporal",2
+218,"Digastric fossa depth","Temporal",2
+219,"Digastric fossa length","Temporal",2
+220,"Digastric fossa width","Temporal",2
+224,"Temporal squama height","Temporal",2
+235,"Temporal band width in lateral view","Vault",2
+244,"Relative height of nuchal area","Occipital",2
+249,"Longus capitis insertion size","Occipital",2
+252,"Occipital plane length","Occipital",2
+279,"Enamel thickness","Dentition",3
+294,"Canine size reduction","Canine",3
+321,"Molar dentine horn height","Molar",2
+327,"Peak of enamel thickness between the roots of molars","Molar",2
+346,"Protocone size relative to paracone of deciduous m1","Premolar",2
+367,"Submandibular fossa depth","Mandible",2
+384,"Ramus length","Mandible",2
+394,"Planum triangulare size","Mandible",3
+395,"Planum triangulare depth","Mandible",3
+396,"Condyle height relative to the coronoid","Mandible",3
+398,"Fossa subcondylea depth","Mandible",3
+406,"Fossa masseterica depth","Mandible",3
+408,"Pterygoid fossa depth","Mandible",2
+416,"Postcanine absolute size","Dentition",NA
+425,"Separation of vomeral/Anterior septal insertion","Nasal",3
+427,"Relative size of posterior temporalis","Temporal",3
+430,"Infraorbital foramen height","Orbit",3

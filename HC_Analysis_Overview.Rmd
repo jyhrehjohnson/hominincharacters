@@ -1,0 +1,955 @@
+---
+title: "What can the character state database tell us?"
+subtitle: "Preliminary overview of the Known Hominin Characters database"
+author: "Jyhreh Johnson"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,          # code is folded in the HTML; set FALSE to hide entirely
+                      message = FALSE, warning = FALSE,
+                      fig.width = 7.5, fig.height = 4.5, dpi = 150)
+
+library(tidyverse)   # dplyr, ggplot2, forcats, stringr, tidyr, readr
+library(knitr)
+library(scales)
+```
+
+```{r helpers}
+# ---- Settings you may want to change ---------------------------------------
+data_file <- "Known_Hominin_Characters.csv"
+
+# Spreadsheet codes -> readable labels. Anything not listed here is kept as-is
+# (so a new code added to the spreadsheet shows up instead of vanishing).
+region_lookup      <- c(CR = "Cranial", DEN = "Dental", CF = "Craniofacial", PC = "Postcranial")
+chartype_lookup    <- c(C = "Continuous", D = "Discrete")
+multistate_lookup  <- c(OM = "Ordered", UM = "Unordered")
+designation_lookup <- c(PHY = "Phylogenetic", TAX = "Taxonomic", BOTH = "Both")
+signif_lookup      <- c(D = "D", ND = "ND")   # confirm what D / ND stand for and relabel here
+
+# How to tell quantitative from qualitative DISCRETE characters. The database has no field for this,
+# so it is inferred from the character name (edit the patterns, or list ids to override):
+measure_pattern <- "ratio|index|length|breadth|width|size|height|depth|thickness"   # measurement-based (binned) traits
+meristic_pattern <- "\\bnumber\\b|\\bcount\\b"                                        # counts, e.g. "Cusp number on M1"
+force_quantitative_ids <- c()     # ids to always treat as quantitative, e.g. c(12, 57)
+force_qualitative_ids  <- c()     # ids to always treat as qualitative (removes false positives)
+
+fig_dir     <- "figures"          # every plot is saved here
+fig_formats <- c("png", "pdf")    # add "svg" or "tiff" if a journal/slide template needs it
+fig_dpi     <- 300
+# ----------------------------------------------------------------------------
+
+# ---- Figure saving ----------------------------------------------------------
+# show_plot() saves a plot to fig_dir in each format in fig_formats, remembers it for the
+# combined PDF at the end, and prints it (so it appears in the report and in the RStudio
+# Plots pane). Usage:  p <- ggplot(...);  show_plot(p, "my_figure_name", height = 5)
+dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
+.figs <- new.env()
+.figs$plots <- list()
+show_plot <- function(p, name, width = 7.5, height = 4.5) {
+  for (fmt in fig_formats) {
+    ggsave(file.path(fig_dir, paste0(name, ".", fmt)), plot = p,
+           width = width, height = height, dpi = fig_dpi, bg = "white")
+  }
+  .figs$plots[[name]] <- p
+  print(p)
+  invisible(p)
+}
+
+# Recode a spreadsheet column using a lookup; blanks/NA become "Unscored".
+# Every level in the lookup is kept even if it has 0 rows (e.g. Postcranial),
+# so gaps in the database are visible in tables and plots.
+recode_col <- function(x, lookup, na_label = "Unscored", keep_all_levels = TRUE) {
+  x0  <- str_to_upper(str_trim(as.character(x)))
+  x0[x0 == ""] <- NA
+  # accept either the spreadsheet code (CR) or the full label (Cranial), in any capitalization
+  lookup_all <- c(lookup, setNames(unname(lookup), str_to_upper(unname(lookup))))
+  out <- unname(lookup_all[x0])
+  out <- ifelse(is.na(x0), na_label, ifelse(is.na(out), x0, out))   # unknown codes pass through
+  lev <- if (keep_all_levels) unname(lookup) else intersect(unname(lookup), out)
+  lev <- c(lev, setdiff(sort(unique(out)), c(lev, na_label)), if (any(is.na(x0))) na_label)
+  factor(out, levels = lev)
+}
+
+# Count + proportion table for one or more grouping columns
+count_prop <- function(df, ...) {
+  df %>%
+    count(..., name = "n", .drop = FALSE) %>%   # .drop = FALSE keeps empty factor levels
+    mutate(prop = n / sum(n),
+           pct  = percent(prop, accuracy = 0.1))
+}
+
+# Single-variable bar plot with "n (pct)" labels
+bar_plot <- function(tab, x, title, xlab, fill = "#4C78A8") {
+  ggplot(tab, aes(x = {{ x }}, y = n)) +
+    geom_col(fill = fill, width = 0.7) +
+    geom_text(aes(label = paste0(n, "\n(", pct, ")")), vjust = -0.3, size = 4) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+    labs(title = title, x = xlab, y = "Number of characters") +
+    theme_minimal(base_size = 14) +
+    theme(panel.grid.major.x = element_blank())
+}
+
+# 100%-stacked bar: composition of `fill` within each level of `x`, labeled with counts
+stack_plot <- function(tab, x, fill, title, xlab, filllab, palette = "Set2") {
+  tab %>%
+    group_by({{ x }}) %>% mutate(share = n / sum(n)) %>% ungroup() %>%
+    ggplot(aes(x = {{ x }}, y = share, fill = {{ fill }})) +
+    geom_col(width = 0.65) +
+    geom_text(aes(label = ifelse(n > 0, n, "")), position = position_stack(vjust = 0.5), size = 4) +
+    scale_y_continuous(labels = percent, expand = expansion(mult = c(0, 0.02))) +
+    scale_fill_brewer(palette = palette, name = filllab, drop = FALSE) +
+    labs(title = title, x = xlab, y = "Share of characters") +
+    theme_minimal(base_size = 14)
+}
+
+# Add a "Sum" row and column to a 2-way table (base addmargins() errors on some R versions)
+add_totals <- function(xt) {
+  m <- matrix(as.numeric(xt), nrow = nrow(xt), dimnames = dimnames(xt))
+  rbind(cbind(m, Sum = rowSums(m)), Sum = c(colSums(m), sum(m)))
+}
+
+# Monte Carlo chi-square + Cramer's V for a contingency table (zero rows/cols dropped)
+assoc_test <- function(xt, B = 10000, seed = 1) {
+  xt <- xt[rowSums(xt) > 0, colSums(xt) > 0, drop = FALSE]
+  set.seed(seed)
+  chi <- chisq.test(xt, simulate.p.value = TRUE, B = B)
+  v <- sqrt(unname(chi$statistic) / (sum(xt) * (min(dim(xt)) - 1)))
+  list(chi = chi, v = v, table = xt)
+}
+```
+
+# Load data
+
+```{r load}
+# readr handles the BOM automatically and tolerates rows with a stray trailing comma
+# (read.csv fails on those). Everything is read as text, then cleaned below.
+cat("Reading:", normalizePath(data_file, mustWork = FALSE), "\n")
+cat("Working directory:", getwd(), "\n")
+hominin_characters <- readr::read_csv(data_file, col_types = readr::cols(.default = "c"),
+                                      name_repair = "minimal", show_col_types = FALSE) %>%
+  as.data.frame(check.names = FALSE)
+# Clean column names: remove BOM / non-breaking spaces and collapse repeated spaces
+names(hominin_characters) <- names(hominin_characters) %>%
+  str_replace_all("[\uFEFF\u00A0]", " ") %>% str_squish()
+hominin_characters$id <- as.integer(hominin_characters$id)
+
+needed <- c("id", "character", "skeletal_element", "anatomical_region", "character_type",
+            "multistate_type", "character_designation", "character_significance",
+            "uberon_ID", "number_of_states")
+missing_cols <- setdiff(needed, names(hominin_characters))
+if (length(missing_cols) > 0) {
+  stop("These columns were not found in ", data_file, ": ", paste(missing_cols, collapse = ", "),
+       "\nColumns present: ", paste(names(hominin_characters), collapse = ", "))
+}
+
+hc <- hominin_characters %>%
+  mutate(
+    anatomical_region      = recode_col(anatomical_region, region_lookup),
+    character_type         = recode_col(character_type, chartype_lookup),
+    multistate_type        = recode_col(multistate_type, multistate_lookup),
+    character_designation  = recode_col(character_designation, designation_lookup),
+    character_significance = recode_col(character_significance, signif_lookup,
+                                        na_label = "Not assessed", keep_all_levels = FALSE),
+    skeletal_element       = str_squish(skeletal_element),            # fixes "Face" vs "Face "
+    skeletal_element       = replace_na(na_if(skeletal_element, ""), "Unscored"),
+    uberon_ID              = na_if(str_trim(uberon_ID), ""),
+    number_of_states       = suppressWarnings(as.numeric(number_of_states))
+  )
+
+n_chars <- nrow(hc)
+
+# Classify each character as continuous, discrete-quantitative, or discrete-qualitative.
+# Discrete-quantitative = discrete states that encode a count or a binned measurement.
+hc <- hc %>%
+  mutate(
+    quant_reason = case_when(
+      id %in% force_qualitative_ids  ~ NA_character_,
+      id %in% force_quantitative_ids ~ "Manual override",
+      str_detect(character, regex(meristic_pattern, ignore_case = TRUE)) ~ "Count (meristic)",
+      str_detect(character, regex(measure_pattern,  ignore_case = TRUE)) ~ "Measurement-based",
+      TRUE ~ NA_character_),
+    trait_class = case_when(
+      character_type == "Continuous"                    ~ "Continuous (quantitative)",
+      character_type == "Discrete" & !is.na(quant_reason) ~ "Discrete, quantitative",
+      character_type == "Discrete"                      ~ "Discrete, qualitative",
+      TRUE                                              ~ "Unscored"),
+    trait_class = factor(trait_class, levels = c("Continuous (quantitative)", "Discrete, quantitative",
+                                                 "Discrete, qualitative", "Unscored")))
+
+# Locate the four source-text columns by keyword, so small differences in the header
+# (spacing, punctuation) don't break the script
+find_col <- function(df, pattern) {
+  hit <- names(df)[str_detect(names(df), regex(pattern, ignore_case = TRUE))]
+  if (length(hit) > 0) hit[1] else NA_character_
+}
+source_cols <- c(collard = find_col(hc, "collard"),
+                 dembo   = find_col(hc, "dembo"),
+                 strait_1997        = find_col(hc, "strait.*1997"),
+                 strait_grine_2004  = find_col(hc, "strait.*grine"))
+source_cols <- source_cols[!is.na(source_cols)]
+dembo_col   <- if ("dembo" %in% names(source_cols)) source_cols[["dembo"]] else NA_character_
+
+cat("Columns in the CSV:", paste(names(hominin_characters), collapse = " | "), "\n")
+cat("Source columns recognized:", paste(source_cols, collapse = " | "), "\n")
+
+# Diagnostic: what values did the script find? If a table below looks wrong, the spreadsheet
+# codes probably differ from the lookups at the top of the script.
+for (col in c("character_type", "anatomical_region", "multistate_type", "character_designation")) {
+  cat("\n", col, ":\n", sep = ""); print(table(hc[[col]], useNA = "ifany"))
+}
+if (!any(hc$character_type %in% c("Continuous", "Discrete"))) {
+  stop("No character_type values matched 'Continuous' or 'Discrete'. Values found: ",
+       paste(unique(hominin_characters$character_type), collapse = ", "),
+       ". Edit chartype_lookup at the top of the script to match.")
+}
+```
+
+The database currently contains **`r n_chars`** characters (IDs `r min(hc$id)`-`r max(hc$id)`).
+
+# Q1. How many characters are continuous vs. discrete?
+
+Continuous characters are quantitative (measurements). Discrete characters are scored as states, but some of those states encode a *count* (for example "Cusp number on M1") or a *binned measurement* (for example "Upper facial breadth"), so the discrete bar is split into quantitative and qualitative parts.
+
+```{r q1}
+q1 <- count_prop(hc, character_type)
+kable(q1, col.names = c("Character type", "n", "Proportion", "%"), digits = 3,
+      caption = "Table 1. Character type counts")
+
+# Split of the discrete characters
+q1b <- count_prop(hc, trait_class) %>% filter(n > 0 | trait_class != "Unscored")
+kable(q1b, col.names = c("Trait class", "n", "Proportion of all characters", "%"), digits = 3,
+      caption = "Table 1b. Continuous vs. discrete-quantitative vs. discrete-qualitative")
+
+hc %>% filter(character_type == "Discrete") %>%
+  count(`Basis for 'quantitative'` = replace_na(quant_reason, "None (qualitative)"), name = "n") %>%
+  kable(caption = "Table 1c. Why discrete characters were classed as quantitative")
+
+# Stacked bar: the Discrete bar is split into quantitative and qualitative segments
+q1_plot_data <- hc %>%
+  mutate(bar = case_when(character_type == "Continuous" ~ "Continuous",
+                         character_type == "Discrete"   ~ "Discrete",
+                         TRUE                           ~ "Unscored"),
+         bar = factor(bar, levels = c("Continuous", "Discrete", "Unscored"))) %>%
+  count(bar, trait_class) %>%
+  mutate(label = ifelse(bar == "Discrete", paste0(n, " (", percent(n / n_chars, accuracy = 0.1), ")"), ""))  # segment labels only where a bar is split
+q1_totals <- q1_plot_data %>% group_by(bar) %>% summarise(total = sum(n), .groups = "drop") %>%
+  mutate(label = paste0("n = ", total, " (", percent(total / n_chars, accuracy = 0.1), ")"))
+
+trait_colors <- c("Continuous (quantitative)" = "#E78AC3",
+                  "Discrete, quantitative"    = "#2B6CB0",
+                  "Discrete, qualitative"     = "#9ECAE1",
+                  "Unscored"                  = "#BDBDBD")
+
+p_q1 <- ggplot(q1_plot_data, aes(x = bar, y = n, fill = trait_class)) +
+  geom_col(width = 0.65, colour = "white") +
+  geom_text(aes(label = label, colour = trait_class), position = position_stack(vjust = 0.5), size = 3.8,
+            show.legend = FALSE) +
+  geom_text(data = q1_totals, aes(x = bar, y = total, label = label),
+            vjust = -0.5, size = 4.2, fontface = "bold", inherit.aes = FALSE) +
+  scale_fill_manual(values = trait_colors, name = NULL, breaks = names(trait_colors)[1:3]) +
+  scale_colour_manual(values = c("Continuous (quantitative)" = "black", "Discrete, quantitative" = "white",
+                                 "Discrete, qualitative" = "black", "Unscored" = "black")) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(title = "Continuous vs. discrete characters", x = "Character type", y = "Number of characters") +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom")
+show_plot(p_q1, "q1_character_type")
+
+# Review list: check these by eye, then use force_quantitative_ids / force_qualitative_ids at the top
+write.csv(hc %>% filter(character_type == "Discrete", !is.na(quant_reason)) %>%
+            select(id, character, skeletal_element, number_of_states, quant_reason),
+          "discrete_quantitative_review.csv", row.names = FALSE)
+```
+
+`r sum(hc$trait_class == "Discrete, quantitative")` of the `r sum(hc$character_type == "Discrete")` discrete characters (`r percent(mean(hc$trait_class[hc$character_type == "Discrete"] == "Discrete, quantitative"), accuracy = 1)`) look quantitative, so the database is `r percent(mean(hc$trait_class %in% c("Continuous (quantitative)", "Discrete, quantitative")), accuracy = 1)` quantitative overall. This split is a name-based screen, because no field in the database records it. Review `discrete_quantitative_review.csv` and correct any misclassified characters with `force_quantitative_ids` / `force_qualitative_ids` in the settings at the top. Adding a quantitative/qualitative column to the spreadsheet would make this exact.
+
+# Q2. How many characters are cranial, dental, craniofacial, or postcranial?
+
+Regions with no characters are kept (n = 0), so a gap in the database is visible. **Postcranial is currently empty.**
+
+```{r q2}
+q2 <- count_prop(hc, anatomical_region)
+kable(q2, col.names = c("Anatomical region", "n", "Proportion", "%"), digits = 3,
+      caption = "Table 2. Characters by anatomical region")
+
+p_q2 <- bar_plot(q2, anatomical_region, "Characters by anatomical region", "Anatomical region", "#66C2A5")
+show_plot(p_q2, "q2_anatomical_region")
+```
+
+# Q3. Do continuous and discrete characters sample the skeleton differently?
+
+Only characters with both a region and a type are used here.
+
+```{r q3-table}
+q3 <- hc %>%
+  filter(character_type %in% c("Continuous", "Discrete"),
+         !anatomical_region %in% c("Unscored", "Postcranial")) %>%
+  droplevels() %>%
+  count_prop(anatomical_region, character_type)
+
+if (nrow(q3) == 0) stop("Q3 has no rows: no character has both a recognized region and a recognized type. ",
+                        "Check the value tables printed in the 'load' chunk.")
+xt <- xtabs(n ~ anatomical_region + character_type, data = q3)
+kable(add_totals(xt), caption = "Table 3a. Region x character type (counts)")
+
+kable(round(100 * prop.table(xt, margin = 2), 1),
+      caption = "Table 3b. Region composition within each character type (% of column)")
+```
+
+```{r q3-plot}
+p_q3 <- stack_plot(q3, character_type, anatomical_region,
+                   "Anatomical region by character type", "Character type", "Region")
+show_plot(p_q3, "q3_region_by_character_type")
+```
+
+```{r q3-test}
+a3 <- assoc_test(xt)
+a3$chi
+kable(round(a3$chi$stdres, 2),
+      caption = "Table 3c. Standardized residuals (|value| > 2 = cell differs from expectation)")
+```
+
+Chi-square (Monte Carlo) p = `r signif(a3$chi$p.value, 3)`, Cramér's V = `r round(a3$v, 2)`. Report the effect size with the p-value. Note that continuous characters are few (`r sum(q3$n[q3$character_type == "Continuous"])`), so cell counts for them are small; treat the test as descriptive.
+
+Optional: the `ggstatsplot` version of the same figure (uncomment to run).
+
+```{r q3-ggstatsplot, eval=FALSE}
+library(ggstatsplot)
+ggbarstats(data = hc %>% filter(character_type %in% c("Continuous", "Discrete")),
+           x = anatomical_region, y = character_type,
+           title = "Anatomical region by character type")
+```
+
+# Q4. How many characters are ordered vs. unordered?
+
+In this database *continuous* characters also carry an ordered/unordered designation (they are binned into states), so this is shown for all characters, split by type.
+
+```{r q4}
+q4 <- count_prop(hc, multistate_type)
+kable(q4, col.names = c("Multistate type", "n", "Proportion", "%"), digits = 3,
+      caption = "Table 4. Ordered vs. unordered characters")
+
+q4b <- hc %>% filter(character_type != "Unscored", multistate_type != "Unscored") %>%
+  droplevels() %>% count_prop(character_type, multistate_type)
+p_q4b <- stack_plot(q4b, character_type, multistate_type,
+                    "Ordered vs. unordered, by character type", "Character type", "Multistate type", "Set3")
+show_plot(p_q4b, "q4_ordering_by_character_type")
+```
+
+```{r q4-region}
+q4c <- hc %>% filter(anatomical_region %in% c("Cranial", "Dental", "Craniofacial"),
+                     multistate_type != "Unscored") %>%
+  droplevels() %>% count_prop(anatomical_region, multistate_type)
+p_q4c <- stack_plot(q4c, anatomical_region, multistate_type,
+                    "Ordered vs. unordered, by region", "Anatomical region", "Multistate type", "Set3")
+show_plot(p_q4c, "q4_ordering_by_region")
+
+a4 <- assoc_test(xtabs(n ~ anatomical_region + multistate_type, data = q4c))
+```
+
+Region x ordering: chi-square (Monte Carlo) p = `r signif(a4$chi$p.value, 3)`, Cramér's V = `r round(a4$v, 2)`.
+
+# Q5. How many states do characters have?
+
+```{r q5}
+q5 <- hc %>% filter(!is.na(number_of_states)) %>%
+  count(number_of_states, name = "n") %>%
+  mutate(pct = percent(n / sum(n), accuracy = 0.1))
+kable(q5, col.names = c("Number of states", "n", "%"), caption = "Table 5. Number of states per character")
+
+p_q5 <- ggplot(q5, aes(x = factor(number_of_states), y = n)) +
+  geom_col(fill = "#A6D854", width = 0.7) +
+  geom_text(aes(label = n), vjust = -0.4) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(title = "Number of character states", x = "Number of states", y = "Number of characters") +
+  theme_minimal(base_size = 14) + theme(panel.grid.major.x = element_blank())
+show_plot(p_q5, "q5_number_of_states")
+```
+
+`r sum(hc$number_of_states == 2, na.rm = TRUE)` characters (`r percent(mean(hc$number_of_states == 2, na.rm = TRUE), accuracy = 1)` of those with a state count) are binary.
+
+# Q6. Which skeletal elements are most heavily sampled?
+
+```{r q6, fig.height = 6}
+q6 <- hc %>% count(skeletal_element, anatomical_region, name = "n") %>%
+  group_by(skeletal_element) %>% mutate(total = sum(n)) %>% ungroup()
+
+p_q6 <- q6 %>%
+  mutate(skeletal_element = fct_reorder(skeletal_element, total)) %>%
+  ggplot(aes(x = skeletal_element, y = n, fill = anatomical_region)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_brewer(palette = "Set2", name = "Region", drop = FALSE) +
+  labs(title = "Characters per skeletal element", x = NULL, y = "Number of characters") +
+  theme_minimal(base_size = 14)
+show_plot(p_q6, "q6_skeletal_elements", height = 6)
+```
+
+Temporal bone and mandible together account for `r percent(sum(hc$skeletal_element %in% c("Temporal", "Mandible")) / n_chars, accuracy = 1)` of all characters. Sampling is uneven, which matters for delimitation because some anatomy carries more weight than other anatomy.
+
+# Q7. Are characters designated as phylogenetic or taxonomic (and are any diagnostic)?
+
+This is directly relevant to species delimitation: it separates characters intended for phylogeny from those used to diagnose taxa.
+
+```{r q7}
+q7 <- count_prop(hc, character_designation)
+kable(q7, col.names = c("Designation", "n", "Proportion", "%"), digits = 3,
+      caption = "Table 7a. Character designation")
+
+q7b <- count_prop(hc, character_significance)
+kable(q7b, col.names = c("Significance", "n", "Proportion", "%"), digits = 3,
+      caption = "Table 7b. Character significance (only a small subset has been assessed)")
+
+p_q7 <- hc %>% filter(character_designation != "Unscored") %>% droplevels() %>%
+  count_prop(anatomical_region, character_designation) %>%
+  stack_plot(anatomical_region, character_designation,
+             "Character designation by region", "Anatomical region", "Designation", "Dark2")
+show_plot(p_q7, "q7_designation_by_region")
+```
+
+# Q8. How well is the database linked to anatomical ontology terms (Uberon)?
+
+```{r q8}
+uberon_count <- hc %>% count(uberon_ID, sort = TRUE, name = "n_characters")
+n_with_id   <- sum(!is.na(hc$uberon_ID))
+n_unique_id <- n_distinct(hc$uberon_ID, na.rm = TRUE)
+```
+
+`r n_with_id` of `r n_chars` characters (`r percent(n_with_id / n_chars, accuracy = 1)`) have an Uberon ID, covering **`r n_unique_id`** distinct anatomical terms.
+
+```{r q8-top}
+p_q8 <- hc %>% filter(!is.na(uberon_ID)) %>%
+  count(uberon_ID, skeletal_element, name = "n_characters") %>%
+  group_by(uberon_ID) %>% slice_max(n_characters, n = 1, with_ties = FALSE) %>% ungroup() %>%
+  slice_max(n_characters, n = 15) %>%
+  mutate(label = paste0(skeletal_element, " (", uberon_ID, ")"),
+         label = fct_reorder(label, n_characters)) %>%
+  ggplot(aes(x = label, y = n_characters)) +
+  geom_col(fill = "#FC8D62") +
+  coord_flip() +
+  labs(title = "15 most frequently scored anatomical structures", x = NULL,
+       y = "Number of characters") +
+  theme_minimal(base_size = 14)
+show_plot(p_q8, "q8_top_uberon_structures", height = 5)
+
+write.csv(uberon_count, "uberon_count.csv", row.names = FALSE)   # same output as the original analysis
+```
+
+```{r q8-region}
+hc %>%
+  group_by(anatomical_region) %>%
+  summarise(characters = n(),
+            distinct_uberon_terms = n_distinct(uberon_ID, na.rm = TRUE),
+            missing_uberon = sum(is.na(uberon_ID)),
+            .groups = "drop") %>%
+  filter(characters > 0) %>%
+  kable(caption = "Table 8. Uberon coverage by anatomical region")
+```
+
+# Q9. Where did the characters come from?
+
+The four source columns hold the source's own description of a character, so a non-empty cell means the character appears in that source.
+
+```{r q9, results = "asis"}
+src_cols <- unname(source_cols)
+if (length(src_cols) == 0) {
+  cat("Skipped: none of the source columns were found in the CSV.\n")
+} else {
+
+  src_present <- hc %>% select(all_of(src_cols)) %>%
+    mutate(across(everything(), ~ !is.na(.x) & str_trim(as.character(.x)) != ""))
+
+  cat("\n\n")
+  tibble(Source = src_cols, `Characters` = colSums(src_present)) %>%
+    mutate(`% of database` = percent(Characters / n_chars, accuracy = 1)) %>%
+    kable(caption = "Table 9a. Characters documented in each source") %>% print()
+  cat("\n\n")
+
+  hc %>%
+    mutate(`Sources` = apply(src_present, 1, function(r) if (any(r)) paste(src_cols[r], collapse = " + ") else "None")) %>%
+    count(Sources, sort = TRUE, name = "n") %>%
+    kable(caption = "Table 9b. Which combinations of sources documented each character") %>% print()
+  cat("\n\n")
+}
+```
+
+# Q10. Where are the gaps? (curation checklist)
+
+```{r q10}
+issues <- bind_rows(
+  hc %>% filter(anatomical_region == "Unscored")      %>% transmute(id, character, issue = "No anatomical region"),
+  hc %>% filter(character_type == "Unscored")         %>% transmute(id, character, issue = "No character type"),
+  hc %>% filter(multistate_type == "Unscored")        %>% transmute(id, character, issue = "No ordered/unordered designation"),
+  hc %>% filter(character_designation == "Unscored")  %>% transmute(id, character, issue = "No phylogenetic/taxonomic designation"),
+  hc %>% filter(is.na(uberon_ID))                     %>% transmute(id, character, issue = "No Uberon ID"),
+  hc %>% filter(skeletal_element == "Unscored")       %>% transmute(id, character, issue = "No skeletal element"),
+  hc %>% filter(is.na(number_of_states))              %>% transmute(id, character, issue = "No number of states"),
+  hc %>% filter(number_of_states == 1)                %>% transmute(id, character, issue = "Only 1 state recorded (check)")
+)
+
+issues %>% count(issue, sort = TRUE, name = "n_characters") %>%
+  kable(caption = "Table 10a. Characters needing attention, by issue")
+
+# Full list to work from in the spreadsheet
+write.csv(issues %>% arrange(id), "character_curation_checklist.csv", row.names = FALSE)
+```
+
+# Q11. Are "qualitative" characters really measurements?
+
+Only `r sum(hc$character_type == "Continuous")` characters are flagged continuous, but many discrete characters are named like measurements (ratios, widths, heights). This is a keyword screen of the character *names*, so read the flagged list before drawing conclusions. Edit the pattern to tune it.
+
+```{r q11}
+hc <- hc %>% mutate(measurement_like = str_detect(character, regex(measure_pattern, ignore_case = TRUE)))
+
+q11 <- hc %>%
+  filter(character_type %in% c("Continuous", "Discrete")) %>% droplevels() %>%
+  count(character_type, measurement_like) %>%
+  mutate(measurement_like = if_else(measurement_like, "Name suggests a measurement", "Name does not"))
+kable(pivot_wider(q11, names_from = measurement_like, values_from = n, values_fill = 0),
+      caption = "Table 11. Character type vs. measurement-like names")
+
+# Discrete characters whose names suggest a measurement (candidates for binned quantitative traits)
+q11_review <- hc %>% filter(character_type == "Discrete", measurement_like) %>%
+  select(id, character, skeletal_element, number_of_states)
+write.csv(q11_review, "measurement_like_discrete_characters.csv", row.names = FALSE)
+```
+
+`r nrow(q11_review)` discrete characters have measurement-like names (full list saved to `measurement_like_discrete_characters.csv`). If most of these really are binned measurements, the true quantitative share of the database is higher than the continuous/discrete flag alone suggests.
+
+# Q12. Which taxa do the characters emphasize?
+
+Counts the characters whose description text (the `description` field plus the Dembo and Strait source text) mentions each taxon. This shows which taxa the character sources were written around, not how each taxon was scored.
+
+```{r q12, fig.height = 5.5}
+taxa_tbl <- tribble(
+  ~taxon,              ~pattern,                    ~group,
+  "P. robustus",       "robustus",                  "Paranthropus",
+  "P. boisei",         "boisei",                    "Paranthropus",
+  "P. aethiopicus",    "aethiopicus",               "Paranthropus",
+  "A. africanus",      "africanus",                 "Australopithecus",
+  "A. afarensis",      "afarensis",                 "Australopithecus",
+  "A. anamensis",      "anamensis",                 "Australopithecus",
+  "A. garhi",          "garhi",                     "Australopithecus",
+  "A. sediba",         "sediba",                    "Australopithecus",
+  "Ar. ramidus",       "ramidus",                   "Other early hominins",
+  "O. tugenensis",     "tugenensis",                "Other early hominins",
+  "S. tchadensis",     "tchadensis",                "Other early hominins",
+  "H. habilis",        "habilis",                   "Homo",
+  "H. rudolfensis",    "rudolfensis",               "Homo",
+  "H. ergaster",       "ergaster",                  "Homo",
+  "H. erectus",        "erectus",                   "Homo",
+  "H. naledi",         "naledi",                    "Homo",
+  "H. sapiens",        "sapiens",                   "Homo",
+  "Pan",               "\\bPan\\b",                 "Extant apes",
+  "Gorilla",           "Gorilla",                   "Extant apes",
+  "Pongo",             "Pongo",                     "Extant apes"
+)
+
+text_cols <- intersect(c("description", unname(source_cols)), names(hc))
+all_text <- hc %>% select(all_of(text_cols)) %>%
+  mutate(across(everything(), ~ replace_na(as.character(.x), ""))) %>%
+  unite("txt", everything(), sep = " ") %>% pull(txt)
+
+q12 <- taxa_tbl %>%
+  mutate(n_characters = map_int(pattern, ~ sum(str_detect(all_text, regex(.x, ignore_case = !str_detect(.x, "Pan"))))))
+
+kable(q12 %>% select(taxon, group, n_characters) %>% arrange(desc(n_characters)),
+      caption = "Table 12. Characters whose text mentions each taxon")
+
+p_q12 <- q12 %>% mutate(taxon = fct_reorder(taxon, n_characters)) %>%
+  ggplot(aes(x = taxon, y = n_characters, fill = group)) +
+  geom_col() + coord_flip() +
+  scale_fill_brewer(palette = "Dark2", name = NULL) +
+  labs(title = "Characters mentioning each taxon", x = NULL, y = "Number of characters") +
+  theme_minimal(base_size = 14)
+show_plot(p_q12, "q12_taxon_mentions", height = 5.5)
+```
+
+Taxa with few or no mentions (`r paste(q12$taxon[q12$n_characters == 0], collapse = ", ")`) are poorly represented in the character descriptions, which matters if they are among the taxa you want to delimit.
+
+# Q13. Do the state counts agree with the listed states?
+
+`state_code` lists each state as `Label (n)`. Comparing the number of distinct states listed there with `number_of_states` is a quick internal-consistency check. Most mismatches are not parsing noise: for example, `state_code` lists two states ("Absent (0); Present (1)") while `number_of_states` says 3, or lists three while the count says 2. Treat this as a review list.
+
+```{r q13}
+parse_states <- function(s) {
+  if (is.na(s) || str_trim(s) == "") return(NA_integer_)
+  length(unique(str_extract_all(s, "\\((\\d+)\\)")[[1]]))
+}
+
+q13 <- hc %>%
+  mutate(states_listed = map_int(state_code, parse_states),
+         diff = states_listed - number_of_states) %>%
+  filter(!is.na(diff))
+
+n_compare  <- nrow(q13)
+n_mismatch <- sum(q13$diff != 0)
+
+q13 %>% count(diff, name = "n_characters") %>%
+  mutate(meaning = case_when(diff == 0 ~ "Agree",
+                             diff > 0  ~ "More states listed than recorded",
+                             TRUE      ~ "Fewer states listed than recorded")) %>%
+  kable(caption = "Table 13. Listed states minus recorded number_of_states")
+
+write.csv(q13 %>% filter(diff != 0) %>% select(id, character, number_of_states, states_listed, state_code),
+          "state_count_mismatches.csv", row.names = FALSE)
+```
+
+Of `r n_compare` characters with both fields, `r n_mismatch` (`r percent(n_mismatch / n_compare, accuracy = 1)`) disagree. The list is saved to `state_count_mismatches.csv`. Resolve these before using state counts as simulation parameters (which is what the parameter section below does).
+
+# Q14. Does the ordered/unordered column match the source text?
+
+The Dembo et al. (2015) description text states "(Ordered)" or "(Unordered)". This compares that statement with the `multistate_type` column.
+
+```{r q14, results = "asis"}
+if (is.na(dembo_col)) {
+  cat("Skipped: no Dembo column was found in the CSV.\n")
+} else {
+  hc <- hc %>%
+    mutate(dembo_order = case_when(
+      str_detect(.data[[dembo_col]], regex("\\(Unordered\\)", ignore_case = TRUE)) ~ "Unordered",
+      str_detect(.data[[dembo_col]], regex("\\(Ordered\\)",   ignore_case = TRUE)) ~ "Ordered",
+      TRUE ~ NA_character_))
+
+  q14 <- hc %>% filter(!is.na(dembo_order), multistate_type != "Unscored") %>%
+    mutate(dembo_order = factor(dembo_order, levels = c("Ordered", "Unordered")))
+
+  cat("\n\n")
+  print(kable(add_totals(table(`Dembo text` = q14$dembo_order, `multistate_type column` = q14$multistate_type)),
+              caption = "Table 14. Ordering stated in Dembo text vs. multistate_type column"))
+  cat("\n\n")
+
+  n_agree <- sum(as.character(q14$dembo_order) == as.character(q14$multistate_type))
+
+  write.csv(q14 %>% filter(as.character(dembo_order) != as.character(multistate_type)) %>%
+              select(id, character, multistate_type, dembo_order),
+            "ordering_disagreements.csv", row.names = FALSE)
+}
+```
+
+`r if (exists("n_agree")) paste0(n_agree, " of ", nrow(q14), " comparable characters (", percent(n_agree / nrow(q14), accuracy = 1), ") agree.") else "Skipped: no Dembo column was found in the CSV (see the columns listed in the load section)."` Any disagreements are saved to `ordering_disagreements.csv` (empty if the two fields agree everywhere).
+
+# Q15. Is region assignment consistent within a skeletal element?
+
+Some elements appear under more than one region. That may be intentional (for example, the zygomatic contributes to the face), but the rule should be explicit.
+
+```{r q15}
+q15 <- hc %>% filter(anatomical_region != "Unscored", skeletal_element != "Unscored") %>%
+  count(skeletal_element, anatomical_region, name = "n") %>%
+  group_by(skeletal_element) %>% filter(n_distinct(anatomical_region) > 1) %>% ungroup()
+
+q15 %>%
+  pivot_wider(names_from = anatomical_region, values_from = n, values_fill = 0) %>%
+  kable(caption = "Table 15. Skeletal elements spanning more than one region")
+
+# Characters sitting in the minority region for their element (candidates to double-check)
+major <- q15 %>% group_by(skeletal_element) %>% slice_max(n, n = 1, with_ties = FALSE) %>%
+  ungroup() %>% select(skeletal_element, major_region = anatomical_region)
+
+q15_review <- hc %>%
+  inner_join(major, by = "skeletal_element") %>%
+  filter(anatomical_region != major_region, anatomical_region != "Unscored") %>%
+  transmute(id, character, skeletal_element, assigned_region = anatomical_region, majority_region = major_region)
+write.csv(q15_review, "region_assignment_review.csv", row.names = FALSE)
+
+p_q15 <- q15 %>% stack_plot(skeletal_element, anatomical_region, "Elements split across regions",
+                            "Skeletal element", "Region")
+show_plot(p_q15, "q15_elements_split_across_regions")
+```
+
+`r nrow(q15_review)` characters sit in a non-majority region for their element (saved to `region_assignment_review.csv`).
+
+# Q16. How many characters allow a variable (polymorphic) state?
+
+Fossil samples are variable within species, so how polymorphism is handled matters for delimitation. This counts characters whose `state_code` or source text (Dembo, Strait) describes a "variable" or "polymorphic" state. Source text such as "(3) variable" means the source scored variable taxa as their own state.
+
+```{r q16}
+var_pattern <- "variable|polymorph"
+src_text_cols <- unname(source_cols)
+source_text <- if (length(src_text_cols) == 0) rep("", n_chars) else
+  hc %>% select(all_of(src_text_cols)) %>%
+    mutate(across(everything(), ~ replace_na(as.character(.x), ""))) %>%
+    unite("txt", everything(), sep = " ") %>% pull(txt)
+
+q16 <- hc %>%
+  mutate(variable_in_states = str_detect(replace_na(state_code, ""), regex(var_pattern, ignore_case = TRUE)),
+         variable_in_text   = str_detect(source_text, regex("\\(\\d+\\)\\s*variable", ignore_case = TRUE)),
+         any_variable       = variable_in_states | variable_in_text)
+
+tibble(Field = c("state_code lists a variable/polymorphic state",
+                 "Source text defines a numbered 'variable' state",
+                 "Either"),
+       Characters = c(sum(q16$variable_in_states), sum(q16$variable_in_text), sum(q16$any_variable))) %>%
+  mutate(`% of database` = percent(Characters / n_chars, accuracy = 0.1)) %>%
+  kable(caption = "Table 16. Characters that allow a variable state")
+
+q16 %>% filter(any_variable) %>% select(id, character, state_code) %>% kable()
+```
+
+# Parameterizing simulations from the real database
+
+These are the empirical proportions a simulation (such as MorphoDelim) would need so that simulated character sets mirror the real database. Values are computed only from characters that have been scored for the relevant field.
+
+```{r params}
+scored <- function(x) x[!x %in% c("Unscored", "Not assessed")]
+prop_of <- function(x, level) mean(scored(as.character(x)) == level)
+
+params <- tribble(
+  ~parameter,                         ~value,
+  "n_characters",                     n_chars,
+  "prop_continuous",                  prop_of(hc$character_type, "Continuous"),
+  "prop_discrete",                    prop_of(hc$character_type, "Discrete"),
+  "prop_ordered",                     prop_of(hc$multistate_type, "Ordered"),
+  "prop_unordered",                   prop_of(hc$multistate_type, "Unordered"),
+  "prop_cranial",                     prop_of(hc$anatomical_region, "Cranial"),
+  "prop_dental",                      prop_of(hc$anatomical_region, "Dental"),
+  "prop_craniofacial",                prop_of(hc$anatomical_region, "Craniofacial"),
+  "prop_postcranial",                 prop_of(hc$anatomical_region, "Postcranial"),
+  "prop_phylogenetic_designation",    prop_of(hc$character_designation, "Phylogenetic"),
+  "prop_taxonomic_designation",       prop_of(hc$character_designation, "Taxonomic"),
+  "prop_both_designation",            prop_of(hc$character_designation, "Both"),
+  "mean_number_of_states",            mean(hc$number_of_states, na.rm = TRUE),
+  "prop_binary",                      mean(hc$number_of_states == 2, na.rm = TRUE)
+)
+kable(params %>% mutate(value = round(value, 3)), caption = "Table 17. Empirical parameters")
+
+state_dist <- hc %>% filter(!is.na(number_of_states)) %>%
+  count(number_of_states, name = "n") %>% mutate(prop = round(n / sum(n), 3))
+kable(state_dist, caption = "Table 18. Distribution of number of states (for drawing simulated state counts)")
+
+write.csv(params, "morphodelim_parameters.csv", row.names = FALSE)
+write.csv(state_dist, "morphodelim_state_count_distribution.csv", row.names = FALSE)
+```
+
+Optional: if you have a simulated character table with a `number_of_states` column, compare it with the real distribution (uncomment and edit).
+
+```{r params-compare, eval=FALSE}
+# sim_chars <- read.csv("simulated_characters.csv")            # your MorphoDelim output
+# bind_rows(
+#   state_dist %>% transmute(number_of_states, prop, source = "Real database"),
+#   sim_chars %>% count(number_of_states) %>% mutate(prop = n / sum(n), source = "Simulated") %>%
+#     select(number_of_states, prop, source)
+# ) %>%
+#   ggplot(aes(factor(number_of_states), prop, fill = source)) +
+#   geom_col(position = "dodge") +
+#   labs(x = "Number of states", y = "Proportion of characters") + theme_minimal(base_size = 14)
+```
+
+# Analyses that need a taxon-by-character matrix
+
+The database currently describes characters, not how each taxon was scored. The analyses below need a **taxon x character matrix**, and they run automatically once the file exists.
+
+**Expected file:** `Hominin_Character_Matrix.csv` in the same folder, with one row per taxon (or specimen/OTU) and one column per character.
+
+- The first column is the taxon name; every other column header contains the character `id` from this database (for example `1`, `2`, ... or `char_1`, `char_2`, ...).
+- Cells hold the state number (`0`, `1`, `2`, ...). Missing data is `?` or blank, and inapplicable is `-`.
+- A polymorphic score lists both states, for example `0/1` or `01`.
+
+```{r matrix-load, results = "asis"}
+#matrix_file <- "Hominin_Character_Matrix.csv"
+#have_matrix <- file.exists(matrix_file)
+#if (!have_matrix) {
+ # cat("\n> **No matrix found** (`", matrix_file, "`), so the sections below are skipped. ",
+     # "Add the file next to this script and re-knit.\n", sep = "")
+#}
+```
+
+```{r matrix-prep, eval = have_matrix}
+#mat_raw <- readr::read_csv(matrix_file, col_types = readr::cols(.default = "c"),
+               #            name_repair = "minimal", show_col_types = FALSE)
+
+#to_set <- function(x) {
+ # x <- str_trim(x)
+ # if (is.na(x) || x %in% c("", "?", "-", "NA", "N/A")) return(character(0))
+ # str_extract_all(x, "[0-9]")[[1]]
+#}
+
+#mat_long <- mat_raw %>%
+ # rename(taxon = 1) %>%
+ # pivot_longer(-taxon, names_to = "char_col", values_to = "raw") %>%
+ # mutate(id  = as.integer(str_extract(char_col, "\\d+")),
+         #set = map(raw, to_set),
+         #scorable = lengths(set) > 0,
+         #polymorphic = lengths(set) > 1) %>%
+ # filter(!is.na(id)) %>%
+  #left_join(hc %>% select(id, anatomical_region, character_type, number_of_states, character), by = "id")
+
+#n_taxa <- n_distinct(mat_long$taxon)
+
+# Characters in the matrix but not in the database (check for mistyped ids)
+#setdiff(unique(mat_long$id), hc$id)
+```
+
+## M1. How many characters can be scored for each taxon?
+
+```{r m1, eval = have_matrix, fig.height = 5}
+#m1 <- mat_long %>%
+ # group_by(taxon) %>%
+  #summarise(scored = sum(scorable), polymorphic = sum(polymorphic),
+   #         pct_of_database = scored / n_chars, .groups = "drop") %>%
+  #arrange(desc(scored))
+#kable(m1 %>% mutate(pct_of_database = percent(pct_of_database, accuracy = 1)),
+ #     caption = "Table M1. Characters scored per taxon")
+
+#p_m1a <- ggplot(m1, aes(x = fct_reorder(taxon, scored), y = pct_of_database)) +
+ # geom_col(fill = "#4C78A8") + coord_flip() +
+  #scale_y_continuous(labels = percent, limits = c(0, 1)) +
+  #labs(title = "Share of database characters scored per taxon", x = NULL, y = "Characters scored") +
+  #theme_minimal(base_size = 14)
+#show_plot(p_m1a, "m1_scored_per_taxon", height = 5)
+
+# By region: does missing data fall on particular parts of the skeleton?
+#p_m1b <- mat_long %>% filter(anatomical_region %in% c("Cranial", "Dental", "Craniofacial")) %>%
+ # group_by(taxon, anatomical_region) %>%
+  #summarise(pct_scored = mean(scorable), .groups = "drop") %>%
+  #ggplot(aes(x = anatomical_region, y = taxon, fill = pct_scored)) +
+  #geom_tile(colour = "white") +
+  #geom_text(aes(label = percent(pct_scored, accuracy = 1)), size = 3) +
+  #scale_fill_gradient(low = "#F7F7F7", high = "#4C78A8", labels = percent, name = "Scored") +
+  #labs(title = "Completeness by taxon and region", x = NULL, y = NULL) +
+  #theme_minimal(base_size = 13)
+#show_plot(p_m1b, "m1_completeness_by_region", height = 5)
+```
+
+## M2. Missing-data pattern across characters
+
+```{r m2, eval = have_matrix, fig.height = 6}
+#m2 <- mat_long %>%
+ # group_by(id, anatomical_region) %>%
+  #summarise(taxa_scored = sum(scorable), pct_scored = mean(scorable), .groups = "drop")
+
+#p_m2a <- ggplot(m2, aes(x = pct_scored)) +
+ # geom_histogram(binwidth = 0.1, boundary = 0, fill = "#66C2A5", colour = "white") +
+  #scale_x_continuous(labels = percent) +
+  #labs(title = "How many taxa can each character be scored for?", x = "Share of taxa scored", y = "Number of characters") +
+  #theme_minimal(base_size = 14)
+#show_plot(p_m2a, "m2_taxa_scored_per_character", height = 4.5)
+
+# Character x taxon completeness map, characters ordered by region then id
+#p_m2b <- mat_long %>%
+ # mutate(id = factor(id, levels = hc %>% arrange(anatomical_region, id) %>% pull(id)),
+  #       taxon = factor(taxon, levels = m1$taxon)) %>%
+  #ggplot(aes(x = id, y = taxon, fill = scorable)) +
+  #geom_tile() +
+  #scale_fill_manual(values = c(`TRUE` = "#4C78A8", `FALSE` = "#EEEEEE"), labels = c("Missing", "Scored"), name = NULL) +
+  #labs(title = "Scoring map (characters ordered by region)", x = "Characters", y = NULL) +
+  #theme_minimal(base_size = 13) + theme(axis.text.x = element_blank(), panel.grid = element_blank())
+#show_plot(p_m2b, "m2_scoring_map", height = 5)
+
+#n_rarely_scored <- sum(m2$pct_scored < 0.5)
+```
+
+`r if (exists("n_rarely_scored")) paste(n_rarely_scored, "characters are scored for fewer than half of the taxa.")`
+
+## M3. Which characters actually vary across taxa?
+
+An invariant character cannot separate taxa. Variability here is the number of distinct states observed across scored taxa.
+
+```{r m3, eval = have_matrix}
+#m3 <- mat_long %>% filter(scorable) %>%
+  #group_by(id, anatomical_region, number_of_states) %>%
+  #summarise(taxa_scored = n(), states_observed = n_distinct(unlist(set)),
+   #         any_polymorphic = any(polymorphic), .groups = "drop") %>%
+  #mutate(class = case_when(states_observed <= 1 ~ "Invariant", TRUE ~ "Variable"))
+
+#m3 %>% count(class, name = "n_characters") %>% mutate(pct = percent(n_characters / sum(n_characters), accuracy = 1)) %>%
+ # kable(caption = "Table M3a. Invariant vs. variable characters across the sampled taxa")
+
+#p_m3 <- m3 %>% filter(anatomical_region %in% c("Cranial", "Dental", "Craniofacial")) %>%
+ # count(anatomical_region, class, name = "n") %>%
+  #mutate(anatomical_region = droplevels(anatomical_region), class = factor(class)) %>%
+  #stack_plot(anatomical_region, class, "Variable characters by region", "Region", "Class", "Set2")
+#show_plot(p_m3, "m3_variable_characters_by_region")
+
+# Are all the states listed in the database actually observed?
+#kable(table(`Recorded number_of_states` = m3$number_of_states, `States observed in matrix` = m3$states_observed),
+ #     caption = "Table M3b. Recorded vs. observed number of states")
+```
+
+## M4. Which characters separate which taxa? (pairwise fixed differences)
+
+A character is counted as separating two taxa when both are scored and their state sets do not overlap (no shared state, polymorphism included). This is a descriptive screen, not a species-delimitation test.
+
+```{r m4, eval = have_matrix, fig.height = 6}
+#taxa <- sort(unique(mat_long$taxon))
+#ids  <- sort(unique(mat_long$id))
+
+#S <- matrix(list(character(0)), nrow = length(taxa), ncol = length(ids),
+ #           dimnames = list(taxa, as.character(ids)))
+#for (k in seq_len(nrow(mat_long))) {
+ # S[[mat_long$taxon[k], as.character(mat_long$id[k])]] <- mat_long$set[[k]]
+#}
+
+#pairs <- t(combn(taxa, 2))
+#pair_res <- map_dfr(seq_len(nrow(pairs)), function(k) {
+ # a <- S[pairs[k, 1], ]; b <- S[pairs[k, 2], ]
+  #comparable <- lengths(a) > 0 & lengths(b) > 0
+  #fixed <- map2_lgl(a, b, ~ length(.x) > 0 && length(.y) > 0 && length(intersect(.x, .y)) == 0)
+  #tibble(taxon_a = pairs[k, 1], taxon_b = pairs[k, 2], id = ids, comparable = comparable, fixed = fixed)
+#}) %>% left_join(hc %>% select(id, anatomical_region, character), by = "id")
+
+#pair_summary <- pair_res %>%
+ # group_by(taxon_a, taxon_b) %>%
+  #summarise(comparable = sum(comparable), fixed_differences = sum(fixed), .groups = "drop")
+
+#p_m4 <- pair_summary %>%
+ # bind_rows(pair_summary %>% rename(taxon_a = taxon_b, taxon_b = taxon_a)) %>%
+  #ggplot(aes(x = taxon_a, y = taxon_b, fill = fixed_differences)) +
+  #geom_tile(colour = "white") +
+  #geom_text(aes(label = fixed_differences), size = 3) +
+  #scale_fill_gradient(low = "#F7F7F7", high = "#FC8D62", name = "Separating\ncharacters") +
+  #labs(title = "Characters separating each pair of taxa", x = NULL, y = NULL) +
+  #theme_minimal(base_size = 12) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#show_plot(p_m4, "m4_pairwise_separating_characters", height = 6)
+
+# Pairs that are hardest to tell apart, and pairs with too little shared data to judge
+#kable(pair_summary %>% arrange(fixed_differences) %>% head(10),
+ #     caption = "Table M4a. Ten pairs with the fewest separating characters")
+#kable(pair_summary %>% arrange(comparable) %>% head(10),
+ #     caption = "Table M4b. Ten pairs with the least comparable data")
+
+# Which regions supply the separating characters?
+#pair_res %>% filter(fixed, anatomical_region %in% c("Cranial", "Dental", "Craniofacial")) %>%
+ # count(anatomical_region, name = "n") %>% mutate(pct = percent(n / sum(n), accuracy = 1)) %>%
+  #kable(caption = "Table M4c. Region of separating characters (all pairs)")
+
+# Characters that separate the most pairs
+#pair_res %>% filter(fixed) %>% count(id, character, anatomical_region, name = "pairs_separated") %>%
+ # slice_max(pairs_separated, n = 15) %>%
+  #kable(caption = "Table M4d. Characters that separate the most taxon pairs")
+```
+
+# Summary slide table
+
+One table you can paste directly into a slide.
+
+```{r summary}
+bind_rows(
+  q1 %>% transmute(Question = "Character type",    Category = as.character(character_type),        n, pct),
+  q2 %>% transmute(Question = "Anatomical region", Category = as.character(anatomical_region),     n, pct),
+  q4 %>% transmute(Question = "Ordered vs. unordered", Category = as.character(multistate_type),   n, pct),
+  q7 %>% transmute(Question = "Designation",       Category = as.character(character_designation), n, pct)
+) %>%
+  kable(col.names = c("Question", "Category", "n", "%"))
+```
+
+# Save all figures
+
+```{r save-all-figures}
+# One multi-page PDF containing every figure in report order (landscape, ready to print)
+combined <- file.path(fig_dir, "all_figures.pdf")
+if (length(.figs$plots) > 0) {
+  pdf(combined, width = 11, height = 8.5)
+  for (p in .figs$plots) print(p)
+  invisible(dev.off())
+  cat("Saved", length(.figs$plots), "figures to", normalizePath(fig_dir),
+      "as", paste(fig_formats, collapse = " + "), "and combined them in", basename(combined), "\n")
+  print(sort(list.files(fig_dir)))
+}
+```

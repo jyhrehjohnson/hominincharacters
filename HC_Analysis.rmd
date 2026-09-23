@@ -30,8 +30,8 @@ hominin_characters <- read.csv("Known_Hominin_Characters.csv") #Make sure to che
 #omo_turkana_df <- as.data.frame(fromJSON(omo_turkana_URL))
 ```
 
-### Character Type Analysis
-```{r table.cap='Table 2'}
+### Character Type Count
+```{r table.cap='Table 1'}
 chartype.table <-hominin_characters %>% count(character_type) # create summary df
 chartype.table.cd<-chartype.table[chartype.table$character_type %in% c('Continuous','Discrete'),] # subset df to show just Continuous/Discrete rows
 chartype.table.cd$proportions <- chartype.table.cd$n/sum(chartype.table.cd$n) # Add column with proportion data
@@ -51,7 +51,8 @@ text(x = chartype_plot,
      font = 2)  # Text size
 ```
 
-### Multistate Type Analysis
+
+### Multistate Type Count
 ```{r table.cap='Table 2'}
 multitype.table <-hominin_characters %>% count(multistate_type) # create summary df
 multitype.table$proportions <- multitype.table$n/sum(multitype.table$n) # Add column with proportion data
@@ -71,8 +72,9 @@ text(x = multitype_plot,
      font = 2)  # Text size
 ```
 
-### Anatomical Analysis
-```{r table.cap='Table 2'}
+
+### Anatomical Region Count
+```{r table.cap='Table 3'}
 anatomical_region.table <-hominin_characters %>% count(anatomical_region) # create summary df
 anatomical_region.table$proportions <- anatomical_region.table$n/sum(anatomical_region.table$n) # Add column with proportion data
 knitr::kable(chartype.table, label=NA, caption='Table 3. Anatomical counts')
@@ -89,4 +91,52 @@ text(x = anatomical_region_plot,
      labels = anatomical_region.table$n, 
      col = 'black',
      font = 2)  # Text size
+```
+
+### Percentage Breakdown of Anatomical Region x Character Type
+https://indrajeetpatil.github.io/ggstatsplot/articles/web_only/ggbarstats.html
+```{BarStackPlot}
+#BarStackPlot
+chartype_bd_plot <- ggbarstats(data = hominin_characters, 
+                               x = anatomical_region, 
+                               y = character_type,
+                               title = "Anatomical Region by Character Type") #show the anatomical region stats for each character type
+chartype_bd_plot
+```
+### Statistical Information
+The p-values (p = 0.39, p = 3.13e-07, p = 6.47e-85) test whether the distribution of traits across regions differs significantly from expected
+Very small p-values indicate statistically significant differences in how traits are distributed across anatomical regions
+The bottom statistics show effect sizes and confidence intervals
+
+### Interpretation
+This suggests that:
+Cranial region dominates both continuous and discrete traits (~64-65%)
+Dental traits make up a substantial portion, especially for continuous measurements (30% vs 26%)
+Craniofacial traits are the least common in both categories
+The distribution patterns are statistically significantly different from random, indicating systematic differences in how different types of traits are distributed across cranial anatomy
+
+### Percentage Breakdown of Anatomical Region x Multistate Type
+```{BarStackPlot}
+#BarStackPlot
+multitype_bd_plot <- ggbarstats(data = hominin_characters, 
+                               x = anatomical_region, 
+                               y = multistate_type,
+                               title = "Anatomical Region by Multistate Type") #show the anatomical region stats for each character type
+multitype_bd_plot
+```
+
+###Statistical Significance
+The p-values show significant differences in trait distribution
+Very small p-values (1.39e-22, 9.09e-70) indicate the distributions are highly statistically significant
+This suggests that ordered vs. unordered traits are not randomly distributed across anatomical regions
+
+###Interpretation
+Cranial region dominates both ordered and unordered traits (~64-66%)
+Dental traits are more common in ordered categories, which makes sense since many dental features (like wear, eruption stages) follow natural progressions
+Craniofacial traits remain the least common across all categories
+The similar distributions between ordered and unordered traits suggest consistent patterns in how cranial anatomy is characterized, regardless of whether traits follow natural sequences
+
+```{Uberon ID Analysis}
+uberon_count <- hominin_characters %>% count(uberon_ID) #count number of Uberon ID occurrences
+write.csv(uberon_count, "uberon_count.csv")
 ```

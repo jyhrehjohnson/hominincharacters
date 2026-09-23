@@ -1,0 +1,16 @@
+"id","character","number_of_states","states_listed","state_code"
+9,"Cranial capacity",4,5,"Small (0); Intermediate (1); Medium (2); Large (3); Very large (4)"
+15,"Postorbital constriction",2,3,"Marked (0); Moderate (1); Slight (2)"
+67,"Canine sexual dimorphism",4,5,"Hyper dimorphic (0); Strongly dimorphic (1); Moderately dimorphic (2); Monomorphic; small canines (3); Monomorphic; large canines (4)"
+68,"Sulcus obliqus",3,2,"Weak to
+moderate (0);
+Strong (1)"
+183,"Postglenoid process extent relative to the tympanic",3,2,"No overlap (0); Overlaps (1); Rudimentary or no postglenoid process"
+230,"Position of temporal emphasis",3,4,"Posterior (0); Intermediate 1 (1); Intermediate 2 (2); Anterior (3)"
+282,"Sulcus obliqus development",3,2,"Weak to moderate (0); Strong (1)"
+339,"Maxillary M2 shape",3,2,"Broader than Long (0); Square (1)"
+375,"Horizontal distance between TMJ and M2 or M3",1,2,"Long (0); Short (1)"
+424,"Subnasal to instranasal contours",3,0,"Discrete (); Variable (); Continuous ()"
+425,"Separation of vomeral/Anterior septal insertion",3,0,"Weak (); Usually Strong (); Strong ()"
+426,"Facial dishing",2,0,"Absent (); Dished ()"
+427,"Relative size of posterior temporalis",3,0,"Small (); Intermediate (); Large ()"
