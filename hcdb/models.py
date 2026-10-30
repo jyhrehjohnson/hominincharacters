@@ -3,7 +3,7 @@ import os
 
 CHARTYPE_CHOICES = (('C', 'Continuous'), ('D', 'Discrete'))
 ORDER_CHOICES = (('UM', 'Unordered Multistate'), ('OM', 'Ordered Multistate'))
-REGIONAL_CHOICES = (('CR', 'Cranial'), ('DEN', 'Dental'), ('CF', 'Craniofacial'),('PC', 'Postcranial'))
+REGIONAL_CHOICES = (('CR', 'Cranial'), ('DEN', 'Dental'), ('CF', 'Craniofacial'),('POST', 'Postcranial'))
 CHARDESIGNATION_CHOICES = (('TAX', 'Taxonomic'), ('PHY', 'Phylogenetic'), ('BOTH', 'Both'))
 CHARSIGNIFICANCE_CHOICES = (('D', 'Diagnostic'), ('ND', 'Non-diagnostic'))
 #STATETYPE_CHOICES = (('A', 'Absent'), ('P', 'Present'), ('SM', 'Small'), ('I', 'Intermediate'), ('M', 'Medium'),
