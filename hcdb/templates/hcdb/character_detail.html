@@ -390,6 +390,7 @@
             }
         }
     </style>
+    {% include 'hcdb/_links_css.html' %}
 </head>
 <body>
     <nav class="navbar">
@@ -397,6 +398,8 @@
             <a href="{% url 'hcdb:home' %}" class="navbar-brand">🧬 Hominin Characters</a>
             <div class="navbar-links">
                 <a href="{% url 'hcdb:character_list' %}">Characters</a>
+                <a href="{% url 'hcdb:element_list' %}">Elements</a>
+                <a href="{% url 'hcdb:publication_list' %}">Publications</a>
                 <a href="{% url 'hcdb:fossil_list' %}">Fossils</a>
                 <a href="{% url 'hcdb:browse_by_taxon' %}">Browse by Taxon</a>
             </div>
@@ -416,7 +419,9 @@
             <div class="overview-header">
                 <div class="character-title">
                     <div class="character-name-large">{{ character.character }}</div>
-                    {% if character.skeletal_element %}
+                    {% if elements %}
+                        <div class="character-element-large">{% for element in elements %}<a href="{% url 'hcdb:element_detail' element.pk %}" style="color: inherit;">{{ element.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                    {% elif character.skeletal_element %}
                         <div class="character-element-large">{{ character.skeletal_element }}</div>
                     {% endif %}
                 </div>
@@ -493,6 +498,9 @@
             </div>
             {% endif %}
         </div>
+
+        <!-- Skeletal elements and sources -->
+        {% include 'hcdb/_character_links.html' %}
 
         <!-- Character States -->
         <div class="section">

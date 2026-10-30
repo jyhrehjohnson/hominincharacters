@@ -2,3 +2,17 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Python
+venv/
+venv_old/
+__pycache__/
+*.pyc
+
+# Backups and SQLite temp files
+*.bak
+db.sqlite3-journal
+
+# Mac / PyCharm
+.DS_Store
+.idea/

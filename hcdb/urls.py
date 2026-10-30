@@ -14,6 +14,14 @@ urlpatterns = [
     # Fossil URLs
     path('fossils/', views.FossilListView.as_view(), name='fossil_list'),
     path('fossils/<int:pk>/', views.FossilDetailView.as_view(), name='fossil_detail'),
+
+    # Skeletal element URLs
+    path('elements/', views.SkeletalElementListView.as_view(), name='element_list'),
+    path('elements/<int:pk>/', views.SkeletalElementDetailView.as_view(), name='element_detail'),
+
+    # Publication URLs
+    path('publications/', views.PublicationListView.as_view(), name='publication_list'),
+    path('publications/<int:pk>/', views.PublicationDetailView.as_view(), name='publication_detail'),
     
     # Browse and search
     path('browse-by-taxon/', views.browse_by_taxon, name='browse_by_taxon'),

@@ -1,0 +1,54 @@
+{% extends 'hcdb/base.html' %}
+
+{% block title %}{{ publication }} - Publications - Hominin Characters Database{% endblock %}
+{% block extra_css %}{% include 'hcdb/_links_css.html' %}{% endblock %}
+
+{% block content %}
+<a href="{% url 'hcdb:publication_list' %}" class="back-link">← All publications</a>
+<h1>{{ publication }}</h1>
+
+<p class="citation">
+    {{ publication.authors }}{% if publication.year %} ({{ publication.year }}){% endif %}.
+    {% if publication.title %}{{ publication.title }}.{% endif %}
+    {% if publication.journal %}<em>{{ publication.journal }}</em>{% if publication.volume %} {{ publication.volume }}{% if publication.issue %}({{ publication.issue }}){% endif %}{% endif %}{% if publication.pages %}: {{ publication.pages }}{% endif %}.{% endif %}
+    {% if publication.doi %}<a href="https://doi.org/{{ publication.doi }}" target="_blank" rel="noopener">doi:{{ publication.doi }}</a>{% elif publication.url %}<a href="{{ publication.url }}" target="_blank" rel="noopener">{{ publication.url }}</a>{% endif %}
+</p>
+
+<div class="stat-row">
+    <div class="stat-pill"><strong>{{ rows|length }}</strong> characters</div>
+    {% for rc in role_counts %}
+        <div class="stat-pill">{% for code, label in role_labels.items %}{% if code == rc.role %}<span class="role-tag role-{{ code|lower }}">{{ label }}</span>{% endif %}{% endfor %} <strong>{{ rc.n }}</strong></div>
+    {% endfor %}
+</div>
+
+{% if elements %}
+<h2>Skeletal elements covered</h2>
+<div class="link-chips" style="margin-bottom: 20px;">
+    {% for element in elements %}
+        <a class="link-chip" href="{% url 'hcdb:element_detail' element.pk %}">{{ element.name }} <span class="chip-meta">{{ element.character_count }}</span></a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<h2>Characters</h2>
+<div class="card table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr><th>Character</th><th>Element</th><th>Role in this publication</th><th>Character no.</th><th>Page / table</th></tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a href="{% url 'hcdb:character_detail' row.character.pk %}">{{ row.character.character }}</a></td>
+                <td>{% for el in row.character.skeletal_elements.all %}<a href="{% url 'hcdb:element_detail' el.pk %}">{{ el.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">—</span>{% endfor %}</td>
+                <td>{% for link in row.links %}<span class="role-tag role-{{ link.role|lower }}">{{ link.get_role_display }}</span>{% endfor %}</td>
+                <td>{% for link in row.links %}{% if link.character_number %}{{ link.character_number }} {% endif %}{% endfor %}</td>
+                <td>{% for link in row.links %}{% if link.page %}{{ link.page }} {% endif %}{% endfor %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="muted">No characters are linked to this publication yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

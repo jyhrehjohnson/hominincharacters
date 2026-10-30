@@ -31,6 +31,11 @@ class Character(models.Model):
     description = models.TextField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
     #origins = models.BooleanField(default=False) #this allows for checkbox
+    skeletal_elements = models.ManyToManyField('SkeletalElement', related_name='characters', blank=True,
+                                               help_text="Skeletal element(s) this character is scored on")
+    publications = models.ManyToManyField('Publication', through='CharacterPublication',
+                                          related_name='characters', blank=True,
+                                          help_text="Publications that define, describe or use this character")
 
     def __str__(self):
         return self.character
@@ -149,6 +154,89 @@ class FossilCharacterState(models.Model):
     def character(self):
         """Quick access to the character"""
         return self.character_state.character
+
+
+SOURCE_ROLE_CHOICES = (
+    ('CHAR', 'Character definition'),   # character taken from this source's character list / matrix
+    ('DESC', 'Character description'),  # wording of the description taken from this source
+    ('STATE', 'State definitions'),     # states / state coding taken from this source
+    ('USE', 'Used or cited'),           # character used, scored or discussed in this source
+)
+
+
+class SkeletalElement(models.Model):
+    """A skeletal element (bone, tooth class, or composite structure) that characters are scored on."""
+    name = models.CharField(max_length=100, unique=True,
+                            help_text="Element name (e.g., Temporal, Mandible, Femur)")
+    anatomical_region = models.CharField(max_length=100, null=True, blank=True, choices=REGIONAL_CHOICES,
+                                         help_text="Default region; leave blank if characters on this element span regions")
+    uberon_ID = models.CharField(max_length=100, null=True, blank=True,
+                                 help_text="UBERON ID for the element itself, not the character-level structure")
+    description = models.TextField(null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Skeletal Element'
+        verbose_name_plural = 'Skeletal Elements'
+
+    def __str__(self):
+        return self.name
+
+
+class Publication(models.Model):
+    """A publication or other source (e.g., ASUDAS) that defines, describes or uses characters."""
+    citation_key = models.CharField(max_length=50, unique=True,
+                                    help_text="Short unique key, e.g. Strait1997, Dembo2015")
+    authors = models.CharField(max_length=500, help_text="Author list, e.g. 'Strait, D.S., Grine, F.E., Moniz, M.A.'")
+    year = models.IntegerField(null=True, blank=True)
+    title = models.TextField(null=True, blank=True)
+    journal = models.CharField(max_length=200, null=True, blank=True, help_text="Journal or book/volume title")
+    volume = models.CharField(max_length=20, null=True, blank=True)
+    issue = models.CharField(max_length=20, null=True, blank=True)
+    pages = models.CharField(max_length=30, null=True, blank=True)
+    doi = models.CharField(max_length=100, null=True, blank=True, verbose_name='DOI')
+    url = models.URLField(null=True, blank=True, verbose_name='URL')
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['authors', 'year']
+        verbose_name = 'Publication'
+        verbose_name_plural = 'Publications'
+
+    def __str__(self):
+        return f"{self.authors} ({self.year})" if self.year else self.authors
+
+
+class CharacterPublication(models.Model):
+    """How a given publication uses a given character -- the 'uses' record."""
+    character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='character_publications')
+    publication = models.ForeignKey(Publication, on_delete=models.CASCADE, related_name='character_publications')
+    role = models.CharField(max_length=10, choices=SOURCE_ROLE_CHOICES, default='USE',
+                            help_text="What this publication contributes for this character")
+    character_number = models.CharField(max_length=20, null=True, blank=True,
+                                        help_text="Character number in the source's list or matrix")
+    original_wording = models.TextField(null=True, blank=True,
+                                        help_text="Character definition as worded in the source")
+    original_states = models.TextField(null=True, blank=True,
+                                       help_text="States/coding as given in the source, if they differ")
+    page = models.CharField(max_length=30, null=True, blank=True, help_text="Page, table or figure in the source")
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['character', 'publication', 'role']
+        ordering = ['character', 'publication__year']
+        verbose_name = 'Character Publication'
+        verbose_name_plural = 'Character Publications'
+
+    def __str__(self):
+        return f"{self.character} - {self.publication} ({self.get_role_display()})"
 
 
 class Item(models.Model):

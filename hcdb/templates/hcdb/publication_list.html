@@ -1,0 +1,49 @@
+{% extends 'hcdb/base.html' %}
+
+{% block title %}Publications - Hominin Characters Database{% endblock %}
+{% block extra_css %}{% include 'hcdb/_links_css.html' %}{% endblock %}
+
+{% block content %}
+<h1>Publications &amp; Sources</h1>
+<p class="muted">Publications and standards that define, describe or use the characters in this database.</p>
+
+<div class="filters">
+    <form method="get">
+        <div class="filter-group">
+            <label for="search">Search:</label>
+            <input type="text" name="search" id="search" placeholder="Author, title, journal..." value="{{ search_query }}">
+        </div>
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <button type="submit" class="btn">Search</button>
+        </div>
+        {% if search_query %}
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <a href="{% url 'hcdb:publication_list' %}" class="btn btn-secondary">Clear</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr><th>Year</th><th>Authors</th><th>Title</th><th>Journal</th><th>Characters</th></tr>
+        </thead>
+        <tbody>
+            {% for pub in publications %}
+            <tr>
+                <td>{{ pub.year|default:"—" }}</td>
+                <td><a href="{% url 'hcdb:publication_detail' pub.pk %}">{{ pub.authors }}</a></td>
+                <td>{{ pub.title|default:"" }}</td>
+                <td>{{ pub.journal|default:"" }}</td>
+                <td><a href="{% url 'hcdb:character_list' %}?publication={{ pub.pk }}">{{ pub.character_count }}</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="muted">No publications found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

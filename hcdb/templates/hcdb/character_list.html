@@ -32,6 +32,26 @@
         </div>
 
         <div class="filter-group">
+            <label for="element">Skeletal Element:</label>
+            <select name="element" id="element">
+                <option value="">All Elements</option>
+                {% for el in elements %}
+                    <option value="{{ el.pk }}" {% if el.pk|stringformat:"s" == current_element %}selected{% endif %}>{{ el.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="publication">Publication:</label>
+            <select name="publication" id="publication">
+                <option value="">All Publications</option>
+                {% for pub in publications %}
+                    <option value="{{ pub.pk }}" {% if pub.pk|stringformat:"s" == current_publication %}selected{% endif %}>{{ pub }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
             <label for="search">Search:</label>
             <input type="text" name="search" id="search" placeholder="Search characters..." value="{{ search_query }}">
         </div>
@@ -41,7 +61,7 @@
             <button type="submit" class="btn">Filter</button>
         </div>
 
-        {% if current_region or current_type or search_query %}
+        {% if current_region or current_type or search_query or current_element or current_publication %}
         <div class="filter-group">
             <label>&nbsp;</label>
             <a href="{% url 'hcdb:character_list' %}" class="btn btn-secondary">Clear Filters</a>
@@ -63,7 +83,11 @@
             </a>
         </h3>
         
-        {% if character.skeletal_element %}
+        {% if character.skeletal_elements.all %}
+        <p><strong>Element:</strong>
+            {% for el in character.skeletal_elements.all %}<a href="{% url 'hcdb:element_detail' el.pk %}">{{ el.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+        </p>
+        {% elif character.skeletal_element %}
         <p><strong>Element:</strong> {{ character.skeletal_element }}</p>
         {% endif %}
         
@@ -97,15 +121,15 @@
 {% if is_paginated %}
 <div class="pagination">
     {% if page_obj.has_previous %}
-        <a href="?page=1{% if current_region %}&region={{ current_region }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">First</a>
-        <a href="?page={{ page_obj.previous_page_number }}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+        <a href="?page=1{% if filter_query %}&{{ filter_query }}{% endif %}">First</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">Previous</a>
     {% endif %}
 
     <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
 
     {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
-        <a href="?page={{ page_obj.paginator.num_pages }}{% if current_region %}&region={{ current_region }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Last</a>
+        <a href="?page={{ page_obj.next_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">Next</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if filter_query %}&{{ filter_query }}{% endif %}">Last</a>
     {% endif %}
 </div>
 {% endif %}

@@ -1,0 +1,627 @@
+---
+title: "Preliminary analysis of the Known Hominin Characters database"
+subtitle: "Summary statistics, duplication, and use in parsimony vs. Bayesian analyses"
+author: "Jyhreh Johnson"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width = 7.5, fig.height = 4.5, dpi = 150)
+library(tidyverse)   # dplyr, ggplot2, forcats, stringr, tidyr, readr
+library(DBI)
+library(RSQLite)
+library(knitr)
+library(scales)
+```
+
+```{r settings}
+# ---- Settings you may want to change ---------------------------------------
+db_path     <- "db.sqlite3"                 # the Django database (run from the project folder)
+fig_dir     <- "figures/preliminary"
+fig_formats <- c("png", "pdf")
+fig_dpi     <- 300
+
+# Analysis method of each source, keyed by Publication.citation_key in the database.
+# Sources that did not run a phylogenetic analysis are "Descriptive" or "Scoring standard".
+analysis_method <- c(
+  Strait1997 = "Parsimony",   # Strait, Grine & Moniz 1997, JHE 32:17-82 (PAUP)
+  Strait2004 = "Parsimony",   # Strait & Grine 2004, JHE 47:399-452
+  Berger2010 = "Parsimony",   # Berger et al. 2010, Science 328:195-204 (cladogram, fig. S3)
+  Dembo2015  = "Bayesian",    # Dembo et al. 2015, Proc R Soc B 282:20150943 (MrBayes)
+  Asfaw1999  = "Descriptive", # Asfaw et al. 1999, Table 1 character list
+  White1994  = "Descriptive",
+  Dart1925   = "Descriptive",
+  ASUDAS     = "Scoring standard",
+  `Wood&Brummel2023` = "Baraminic distance"  # Wood & Brummel 2023, Proc. 9th ICC: baraminic distance correlation, 239 postcranial chars
+)
+phylo_methods <- c("Parsimony", "Bayesian")
+
+# Number of characters each source actually analysed (from the papers). Used to flag sources
+# whose links in the database exceed what the paper contains (e.g. pooled "Strait & Dembo" notes).
+published_size <- c(Strait1997 = 60, Strait2004 = 198, Dembo2015 = 380, `Wood&Brummel2023` = 239)
+
+# Duplicate review. After checking duplicate_candidates.csv, list groups of character ids that are
+# the SAME character (confirmed) and pairs you checked and found to be different (rejected).
+confirmed_duplicates <- list(c(576, 636))   # e.g. "Tuberoacetabular sulcus width" / "Tuberoacetabular sulcus"
+rejected_duplicates  <- list(c(514, 515), c(514, 516), c(515, 516))  # Limb joint proportions: names garbled, states differ
+near_dup_threshold   <- 0.85                # name similarity (0-1) above which a pair is a candidate
+# ----------------------------------------------------------------------------
+```
+
+```{r helpers}
+dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
+show_plot <- function(p, name, width = 7.5, height = 4.5) {
+  for (fmt in fig_formats) {
+    ggsave(file.path(fig_dir, paste0(name, ".", fmt)), plot = p,
+           width = width, height = height, dpi = fig_dpi, bg = "white")
+  }
+  print(p)
+  invisible(p)
+}
+
+# Recode a code column (CR, D, UM, ...) to labels; blanks become "Unscored"; every lookup level kept
+recode_col <- function(x, lookup, na_label = "Unscored") {
+  x0 <- str_to_upper(str_trim(as.character(x)))
+  x0[x0 == ""] <- NA
+  lookup_all <- c(lookup, setNames(unname(lookup), str_to_upper(unname(lookup))))
+  out <- unname(lookup_all[x0])
+  out <- ifelse(is.na(x0), na_label, ifelse(is.na(out), x0, out))
+  lev <- c(unname(lookup), setdiff(sort(unique(out)), c(unname(lookup), na_label)),
+           if (any(out == na_label)) na_label)
+  factor(out, levels = unique(lev))
+}
+
+count_prop <- function(df, ...) {
+  df %>% count(..., name = "n", .drop = FALSE) %>%
+    mutate(prop = n / sum(n), pct = percent(prop, accuracy = 0.1))
+}
+
+bar_plot <- function(tab, x, title, xlab, fill = "#4C78A8") {
+  ggplot(tab, aes(x = {{ x }}, y = n)) +
+    geom_col(fill = fill, width = 0.7) +
+    geom_text(aes(label = paste0(n, "\n(", pct, ")")), vjust = -0.3, size = 3.6) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.22))) +
+    labs(title = title, x = xlab, y = "Number of characters") +
+    theme_minimal(base_size = 13) + theme(panel.grid.major.x = element_blank())
+}
+
+stack_plot <- function(tab, x, fill, title, xlab, filllab, palette = "Set2") {
+  tab %>% group_by({{ x }}) %>% mutate(share = n / sum(n)) %>% ungroup() %>%
+    ggplot(aes(x = {{ x }}, y = share, fill = {{ fill }})) +
+    geom_col(width = 0.65) +
+    geom_text(aes(label = ifelse(n > 0, n, "")), position = position_stack(vjust = 0.5), size = 3.6) +
+    scale_y_continuous(labels = percent, expand = expansion(mult = c(0, 0.02))) +
+    scale_fill_brewer(palette = palette, name = filllab, drop = FALSE) +
+    labs(title = title, x = xlab, y = "Share of characters") +
+    theme_minimal(base_size = 13)
+}
+
+# Monte Carlo chi-square + Cramer's V (zero rows/cols dropped); NULL if fewer than 2 rows or cols
+assoc_test <- function(xt, B = 10000, seed = 1) {
+  xt <- xt[rowSums(xt) > 0, colSums(xt) > 0, drop = FALSE]
+  if (nrow(xt) < 2 || ncol(xt) < 2) return(NULL)
+  set.seed(seed)
+  chi <- suppressWarnings(chisq.test(xt, simulate.p.value = TRUE, B = B))
+  v <- sqrt(unname(chi$statistic) / (sum(xt) * (min(dim(xt)) - 1)))
+  list(chi = chi, v = v, table = xt)
+}
+
+fmt_p <- function(p) ifelse(is.na(p), "—", ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)))
+```
+
+```{r load}
+con <- dbConnect(RSQLite::SQLite(), db_path)
+chars_raw <- dbGetQuery(con, "
+  SELECT id, character, skeletal_element, anatomical_region, character_type, multistate_type,
+         character_designation, character_significance, uberon_ID, number_of_states,
+         state_code, taxa_found, description, notes
+  FROM hcdb_character")
+states <- dbGetQuery(con, "SELECT character_id, state_code, state_name FROM hcdb_characterstate")
+char_elements <- dbGetQuery(con, "
+  SELECT ce.character_id, e.id AS element_id, e.name AS element
+  FROM hcdb_character_skeletal_elements ce
+  JOIN hcdb_skeletalelement e ON e.id = ce.skeletalelement_id")
+n_elements_table <- dbGetQuery(con, "SELECT COUNT(*) AS n FROM hcdb_skeletalelement")$n
+pubs <- dbGetQuery(con, "SELECT id AS publication_id, citation_key, authors, year FROM hcdb_publication")
+links <- dbGetQuery(con, "
+  SELECT cp.character_id, cp.role, cp.character_number, p.citation_key
+  FROM hcdb_characterpublication cp
+  JOIN hcdb_publication p ON p.id = cp.publication_id")
+dbDisconnect(con)
+
+region_lookup <- c(CR = "Cranial", CF = "Craniofacial", DEN = "Dental", POST = "Postcranial")
+type_lookup   <- c(C = "Continuous", D = "Discrete")
+order_lookup  <- c(UM = "Unordered", OM = "Ordered")
+desig_lookup  <- c(PHY = "Phylogenetic", TAX = "Taxonomic", BOTH = "Both")
+signif_lookup <- c(D = "Diagnostic", ND = "Non-diagnostic")
+
+state_counts <- states %>% count(character_id, name = "n_states_listed")
+
+chars <- chars_raw %>%
+  mutate(region       = recode_col(anatomical_region, region_lookup),
+         type         = recode_col(character_type, type_lookup),
+         ordering     = recode_col(multistate_type, order_lookup),
+         designation  = recode_col(character_designation, desig_lookup),
+         significance = recode_col(character_significance, signif_lookup)) %>%
+  left_join(state_counts, by = c("id" = "character_id")) %>%
+  mutate(n_states_listed = replace_na(n_states_listed, 0L))
+
+# Which sources (and which methods) use each character. Any link to a publication counts as use.
+links <- links %>%
+  mutate(method = unname(analysis_method[citation_key]),
+         method = replace_na(method, "Unclassified"))
+
+char_sources <- links %>%
+  group_by(character_id) %>%
+  summarise(n_sources   = n_distinct(citation_key),
+            sources     = paste(sort(unique(citation_key)), collapse = " + "),
+            parsimony   = any(method == "Parsimony"),
+            bayesian    = any(method == "Bayesian"),
+            any_phylo   = any(method %in% phylo_methods),
+            n_phylo_src = n_distinct(citation_key[method %in% phylo_methods]),
+            .groups = "drop")
+
+chars <- chars %>%
+  left_join(char_sources, by = c("id" = "character_id")) %>%
+  mutate(n_sources   = replace_na(n_sources, 0L),
+         n_phylo_src = replace_na(n_phylo_src, 0L),
+         parsimony   = replace_na(parsimony, FALSE),
+         bayesian    = replace_na(bayesian, FALSE),
+         any_phylo   = replace_na(any_phylo, FALSE),
+         use_group = case_when(
+           parsimony & bayesian ~ "Both",
+           parsimony            ~ "Parsimony only",
+           bayesian             ~ "Bayesian only",
+           n_sources > 0        ~ "Other method / non-phylogenetic source only",
+           TRUE                 ~ "No source recorded"),
+         use_group = factor(use_group, levels = c("Parsimony only", "Bayesian only", "Both",
+                                                  "Other method / non-phylogenetic source only", "No source recorded")))
+n_chars <- nrow(chars)
+```
+
+The database currently holds **`r n_chars`** characters. All numbers below are recomputed from `r db_path` each time this report is knit.
+
+# 1. Summary statistics
+
+```{r t1, results = "asis"}
+tibble(
+  Measure = c("Characters", "Character states", "Skeletal elements", "Publications / sources",
+              "Character–source links", "Characters with at least one state",
+              "Characters linked to a skeletal element", "Characters with a recorded source"),
+  Value = c(n_chars, nrow(states), n_elements_table, nrow(pubs), nrow(links),
+            sum(chars$n_states_listed > 0), n_distinct(char_elements$character_id),
+            sum(chars$n_sources > 0))
+) %>%
+  mutate(`% of characters` = ifelse(row_number() >= 6, percent(Value / n_chars, accuracy = 0.1), "")) %>%
+  kable(caption = "Table 1. The database at a glance") %>% print()
+```
+
+## 1.1 Composition
+
+```{r t2, results = "asis"}
+comp <- bind_rows(
+  count_prop(chars, level = region)       %>% mutate(Variable = "Anatomical region"),
+  count_prop(chars, level = type)         %>% mutate(Variable = "Character type"),
+  count_prop(chars, level = ordering)     %>% mutate(Variable = "Multistate ordering"),
+  count_prop(chars, level = designation)  %>% mutate(Variable = "Designation"),
+  count_prop(chars, level = significance) %>% mutate(Variable = "Significance")
+) %>% select(Variable, Level = level, n, `%` = pct)
+kable(comp, caption = "Table 2. How characters are distributed across each descriptive field") %>% print()
+```
+
+```{r f1}
+p <- count_prop(chars, region) %>%
+  bar_plot(region, "Characters by anatomical region", "Anatomical region")
+show_plot(p, "prelim_01_region")
+```
+
+## 1.2 Character states
+
+`number_of_states` is the count typed into the character record; "states listed" is the number of state rows actually entered for that character. Characters with no state rows are excluded from the summaries of states listed.
+
+```{r t3, results = "asis"}
+state_summary <- function(df, var) {
+  df %>% filter(!is.na({{ var }}), {{ var }} > 0) %>%
+    group_by(type) %>%
+    summarise(n = n(), Mean = mean({{ var }}), SD = sd({{ var }}), Median = median({{ var }}),
+              Q1 = quantile({{ var }}, 0.25), Q3 = quantile({{ var }}, 0.75),
+              Min = min({{ var }}), Max = max({{ var }}), .groups = "drop") %>%
+    bind_rows(df %>% filter(!is.na({{ var }}), {{ var }} > 0) %>%
+                summarise(type = "All characters", n = n(), Mean = mean({{ var }}), SD = sd({{ var }}),
+                          Median = median({{ var }}), Q1 = quantile({{ var }}, 0.25),
+                          Q3 = quantile({{ var }}, 0.75), Min = min({{ var }}), Max = max({{ var }})))
+}
+bind_rows(
+  state_summary(chars, n_states_listed) %>% mutate(Measure = "States listed"),
+  state_summary(chars, number_of_states) %>% mutate(Measure = "number_of_states field")
+) %>%
+  mutate(type = as.character(type)) %>%
+  select(Measure, `Character type` = type, everything()) %>%
+  mutate(across(c(Mean, SD), ~ round(.x, 2))) %>%
+  kable(caption = "Table 3. Number of states per character") %>% print()
+```
+
+```{r f2}
+p <- chars %>% filter(n_states_listed > 0) %>%
+  count(n_states_listed, type) %>%
+  ggplot(aes(factor(n_states_listed), n, fill = type)) +
+  geom_col(width = 0.7) +
+  scale_fill_brewer(palette = "Set2", name = "Character type") +
+  labs(title = "Number of states listed per character", x = "States listed", y = "Number of characters") +
+  theme_minimal(base_size = 13)
+show_plot(p, "prelim_02_states_per_character")
+```
+
+## 1.3 Skeletal elements
+
+```{r t4, results = "asis"}
+per_element <- char_elements %>% count(element, name = "n") %>% arrange(desc(n))
+per_char_el <- chars %>% select(id) %>%
+  left_join(char_elements %>% count(character_id, name = "n_el"), by = c("id" = "character_id")) %>%
+  mutate(n_el = replace_na(n_el, 0L))
+tibble(
+  Measure = c("Elements with at least one character", "Characters per element: median (range)",
+              "Characters on more than one element", "Characters with no element"),
+  Value = c(nrow(per_element),
+            sprintf("%s (%s–%s)", median(per_element$n), min(per_element$n), max(per_element$n)),
+            sum(per_char_el$n_el > 1), sum(per_char_el$n_el == 0))
+) %>% kable(caption = "Table 4. Skeletal element coverage") %>% print()
+```
+
+```{r f3, fig.height = 6}
+p <- per_element %>% slice_head(n = 20) %>%
+  mutate(element = fct_reorder(element, n)) %>%
+  ggplot(aes(n, element)) + geom_col(fill = "#4C78A8") +
+  geom_text(aes(label = n), hjust = -0.2, size = 3.5) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(title = "The 20 most heavily sampled skeletal elements", x = "Number of characters", y = NULL) +
+  theme_minimal(base_size = 13)
+show_plot(p, "prelim_03_top_elements", height = 6)
+```
+
+## 1.4 Completeness
+
+```{r f4}
+filled <- function(x) !is.na(x) & str_trim(as.character(x)) != ""
+completeness <- tibble(
+  Field = c("Skeletal element", "Anatomical region", "Character type", "Multistate ordering",
+            "Designation", "Significance", "UBERON ID", "Description", "States entered", "Source"),
+  n = c(sum(per_char_el$n_el > 0), sum(filled(chars$anatomical_region)), sum(filled(chars$character_type)),
+        sum(filled(chars$multistate_type)), sum(filled(chars$character_designation)),
+        sum(filled(chars$character_significance)), sum(filled(chars$uberon_ID)),
+        sum(filled(chars$description)), sum(chars$n_states_listed > 0), sum(chars$n_sources > 0))
+) %>% mutate(prop = n / n_chars, Field = fct_reorder(Field, prop))
+p <- ggplot(completeness, aes(prop, Field)) +
+  geom_col(fill = "#59A14F") +
+  geom_text(aes(label = percent(prop, accuracy = 1)), hjust = -0.15, size = 3.5) +
+  scale_x_continuous(labels = percent, limits = c(0, 1.12)) +
+  labs(title = "Share of characters with each field filled in", x = NULL, y = NULL) +
+  theme_minimal(base_size = 13)
+show_plot(p, "prelim_04_completeness")
+```
+
+# 2. Duplication
+
+Duplication is measured two ways:
+
+* **Within the database:** the same character entered more than once. Candidates are found by comparing names, then sorted by whether their state lists also match. Characters whose names differ only by tooth or vertebra position (M1 vs. M2, C6 vs. C7, 11th vs. 12th thoracic) are treated as **serial homologs, not duplicates**, and are left out.
+* **Across sources:** how often the same character is reused by more than one publication. This is the redundancy across published character lists.
+
+## 2.1 Duplicate entries within the database
+
+```{r dup}
+norm_name <- function(x) {
+  x %>% str_to_lower() %>% str_replace_all("[^a-z0-9 ]", " ") %>% str_squish()
+}
+# remove position tokens (m1, p3, c7, l2, t11, i2, dm1, 11th, ...) to detect serial homologs
+strip_position <- function(x) {
+  x %>% str_replace_all("\\b(d?[mpic]|l|t|s)\\s?[0-9]+\\b", "#") %>%
+    str_replace_all("\\b[0-9]+(st|nd|rd|th)?\\b", "#") %>%
+    str_replace_all("\\b(first|second|third|fourth|fifth|upper|lower|maxillary|mandibular|manual|pedal|proximal|distal|left|right)\\b", "#") %>%
+    str_replace_all("\\b(i|ii|iii|iv|v)\\b", "#") %>%
+    str_squish()
+}
+norm_states <- function(x) {
+  s <- str_to_lower(replace_na(x, ""))
+  s <- str_remove_all(s, "\\(\\s*[0-9]+\\s*\\)")
+  s <- str_replace_all(s, "[^a-z0-9;]", "")
+  parts <- sort(str_split(s, ";")[[1]])
+  paste(parts[parts != ""], collapse = ";")
+}
+
+d <- chars %>%
+  transmute(id, character, element = skeletal_element, state_code,
+            nm = norm_name(character), pos = strip_position(nm),
+            st = map_chr(state_code, norm_states))
+nm <- d$nm
+sim <- 1 - adist(nm) / outer(nchar(nm), nchar(nm), pmax)
+
+pair_key <- function(a, b) paste(pmin(a, b), pmax(a, b), sep = "-")
+group_pairs <- function(groups) {
+  if (length(groups) == 0) return(character(0))
+  unlist(lapply(groups, function(g) { g <- sort(g); cb <- combn(g, 2); pair_key(cb[1, ], cb[2, ]) }))
+}
+confirmed_keys <- group_pairs(confirmed_duplicates)
+rejected_keys  <- group_pairs(rejected_duplicates)
+
+# Candidate pairs come from three places:
+#  (1) similar names (similarity >= near_dup_threshold)
+#  (2) one name contained in the other with identical states ("X" vs. "X width"), which
+#      string similarity misses when the extra words are long
+#  (3) pairs you have already confirmed
+sim_pairs <- which(sim >= near_dup_threshold & upper.tri(sim), arr.ind = TRUE)
+same_st <- outer(d$st, d$st, "==") & outer(d$st != "", d$st != "", "&") & upper.tri(sim)
+st_pairs <- which(same_st, arr.ind = TRUE)
+shorter <- ifelse(nchar(nm[st_pairs[, 1]]) <= nchar(nm[st_pairs[, 2]]), st_pairs[, 1], st_pairs[, 2])
+longer  <- ifelse(shorter == st_pairs[, 1], st_pairs[, 2], st_pairs[, 1])
+# whole-word containment only (so "mandibular fossa depth" does not match "submandibular fossa depth");
+# normalized names contain only letters, digits and spaces, so they are safe to use in a regex
+is_contained <- nchar(nm[shorter]) >= 12 &
+  str_detect(nm[longer], paste0("(^| )", nm[shorter], "( |$)"))
+contain_pairs <- st_pairs[is_contained, , drop = FALSE]
+conf_pairs <- if (length(confirmed_keys)) {
+  e <- matrix(as.integer(str_split_fixed(confirmed_keys, "-", 2)), ncol = 2)
+  ij <- cbind(match(e[, 1], d$id), match(e[, 2], d$id))
+  ij <- ij[complete.cases(ij), , drop = FALSE]
+  cbind(pmin(ij[, 1], ij[, 2]), pmax(ij[, 1], ij[, 2]))
+} else matrix(integer(0), ncol = 2)
+idx <- unique(rbind(sim_pairs, contain_pairs, conf_pairs))
+contain_keys <- pair_key(d$id[contain_pairs[, 1]], d$id[contain_pairs[, 2]])
+
+cand_levels <- c("Confirmed duplicate", "Same name, same states", "Name contained in other, same states",
+                 "Same name, different states", "Similar name, same states", "Similar name, different states",
+                 "Checked: different characters", "Serial homolog (excluded)")
+cand <- tibble(i = idx[, 1], j = idx[, 2]) %>%
+  mutate(similarity = sim[cbind(i, j)],
+         id_a = d$id[i], id_b = d$id[j],
+         name_a = d$character[i], name_b = d$character[j],
+         element_a = d$element[i], element_b = d$element[j],
+         states_a = d$state_code[i], states_b = d$state_code[j],
+         same_name   = d$nm[i] == d$nm[j],
+         serial      = d$pos[i] == d$pos[j] & !same_name,
+         same_states = d$st[i] == d$st[j] & d$st[i] != "",
+         key = pair_key(id_a, id_b),
+         contained = key %in% contain_keys,
+         category = case_when(
+           key %in% confirmed_keys ~ "Confirmed duplicate",
+           key %in% rejected_keys  ~ "Checked: different characters",
+           serial                  ~ "Serial homolog (excluded)",
+           same_name & same_states ~ "Same name, same states",
+           contained               ~ "Name contained in other, same states",
+           same_name               ~ "Same name, different states",
+           same_states             ~ "Similar name, same states",
+           TRUE                    ~ "Similar name, different states"),
+         category = factor(category, levels = cand_levels)) %>%
+  arrange(category, desc(similarity))
+
+cand %>% select(category, similarity, id_a, name_a, element_a, states_a, id_b, name_b, element_b, states_b) %>%
+  mutate(similarity = round(similarity, 2)) %>%
+  write_csv("duplicate_candidates.csv")
+
+# Duplication rate = redundant entries / all characters. A group of k copies contributes k - 1.
+redundant_from_groups <- function(keys) {
+  if (length(keys) == 0) return(0)
+  e <- str_split_fixed(keys, "-", 2)
+  g <- igraph_free_components(e)
+  sum(lengths(g) - 1)
+}
+# connected components without extra packages
+igraph_free_components <- function(edges) {
+  nodes <- unique(c(edges)); parent <- setNames(nodes, nodes)
+  find <- function(x) { while (parent[[x]] != x) x <- parent[[x]]; x }
+  for (k in seq_len(nrow(edges))) {
+    a <- find(edges[k, 1]); b <- find(edges[k, 2]); if (a != b) parent[[b]] <- a
+  }
+  split(nodes, vapply(nodes, find, character(1)))
+}
+likely_keys <- cand$key[cand$category %in% c("Confirmed duplicate", "Same name, same states",
+                                               "Name contained in other, same states")]
+possible_keys <- cand$key[!cand$category %in% c("Serial homolog (excluded)", "Checked: different characters")]
+n_exact_names <- sum(duplicated(d$nm))
+dup_rates <- tibble(
+  Definition = c("Identical names (after removing case and punctuation)",
+                 "Confirmed duplicates (your review)",
+                 "Probable duplicates (confirmed, or same/contained name with identical states)",
+                 "Upper bound (every unreviewed candidate, serial homologs excluded)"),
+  `Redundant entries` = c(n_exact_names,
+                          redundant_from_groups(confirmed_keys),
+                          redundant_from_groups(likely_keys),
+                          redundant_from_groups(possible_keys))
+) %>% mutate(`Duplication rate` = percent(`Redundant entries` / n_chars, accuracy = 0.1))
+```
+
+```{r dup_tables, results = "asis"}
+kable(dup_rates, caption = paste0("Table 5. Within-database duplication rate (", n_chars, " characters)")) %>% print()
+cat("\n\n")
+cand %>% count(category, name = "Pairs") %>%
+  kable(caption = paste0("Table 6. Candidate pairs by category (name similarity ≥ ", near_dup_threshold,
+                         "). Full list with names and states: duplicate_candidates.csv")) %>% print()
+cat("\n\n")
+cand %>% filter(!category %in% c("Serial homolog (excluded)")) %>%
+  transmute(Category = category, Similarity = round(similarity, 2),
+            `Character A` = paste0(name_a, " [", id_a, "]"), `Character B` = paste0(name_b, " [", id_b, "]")) %>%
+  kable(caption = "Table 7. Candidate duplicates to review (serial homologs omitted)") %>% print()
+```
+
+To finish this section, open `duplicate_candidates.csv`, decide each pair, and add the ids to `confirmed_duplicates` or `rejected_duplicates` in the settings chunk. The confirmed rate in Table 5 then becomes the number to report.
+
+## 2.2 Reuse of characters across sources
+
+```{r reuse, results = "asis"}
+src_chars <- chars %>% filter(n_sources > 0)
+phy_chars <- chars %>% filter(n_phylo_src > 0)
+tibble(
+  Measure = c("Characters with a recorded source",
+              "… used by 2 or more sources",
+              "Characters used in a phylogenetic analysis",
+              "… used by 2 or more phylogenetic analyses"),
+  n = c(nrow(src_chars), sum(src_chars$n_sources >= 2), nrow(phy_chars), sum(phy_chars$n_phylo_src >= 2)),
+  Rate = c("", percent(mean(src_chars$n_sources >= 2), accuracy = 0.1),
+           "", percent(mean(phy_chars$n_phylo_src >= 2), accuracy = 0.1))
+) %>% kable(caption = "Table 8. Cross-source duplication (reuse) rate") %>% print()
+cat("\n\n")
+src_chars %>% count(`Sources per character` = n_sources, name = "Characters") %>%
+  kable(caption = "Table 9. Number of sources using each character") %>% print()
+```
+
+# 3. Use in parsimony vs. Bayesian analyses
+
+Each source is assigned the method it used (settings chunk). A character counts as used by a method if any source using that method includes it.
+
+```{r method_check, results = "asis"}
+pub_table <- pubs %>%
+  left_join(links %>% group_by(citation_key) %>%
+              summarise(`Characters linked` = n_distinct(character_id), .groups = "drop"),
+            by = "citation_key") %>%
+  mutate(Method = replace_na(unname(analysis_method[citation_key]), "Unclassified"),
+         `Characters in paper` = unname(published_size[citation_key]),
+         Check = case_when(
+           is.na(`Characters in paper`) ~ "",
+           `Characters linked` > `Characters in paper` ~ "More links than the paper has: source attribution is pooled",
+           TRUE ~ "OK")) %>%
+  arrange(year) %>%
+  select(Source = citation_key, Year = year, Method, `Characters linked`, `Characters in paper`, Check)
+kable(pub_table, caption = "Table 10. Sources, their analysis method, and how many characters each is linked to") %>% print()
+pooled <- any(str_detect(pub_table$Check, "pooled"))
+if (pooled) {
+  cat("\n\n> **Caution.** At least one source is linked to more characters than its paper contains. ",
+      "This happens when a note credits several sources jointly (\"Traits from Strait, 1997;2004 & Dembo, 2015\"), ",
+      "so every character gets linked to every source in the note. Until each source's own character list is ",
+      "matched to the database, the parsimony/Bayesian split below over-counts \"Both\".\n\n")
+}
+```
+
+```{r method_tables, results = "asis"}
+count_prop(chars, `Use group` = use_group) %>% select(`Use group`, n, `%` = pct) %>%
+  kable(caption = "Table 11. Characters by the kind of analysis that uses them") %>% print()
+cat("\n\n")
+tibble(Method = phylo_methods,
+       Characters = c(sum(chars$parsimony), sum(chars$bayesian))) %>%
+  mutate(`% of database` = percent(Characters / n_chars, accuracy = 0.1)) %>%
+  kable(caption = "Table 12. Characters used by each phylogenetic method (a character can count for both)") %>% print()
+```
+
+```{r f5}
+p <- chars %>% count(region, use_group) %>%
+  stack_plot(region, use_group, "Which analyses use the characters in each region",
+             "Anatomical region", "Used in")
+show_plot(p, "prelim_05_use_by_region", width = 8.5)
+```
+
+# 4. Pairwise comparisons
+
+## 4.1 Character sets used by each pair of analysis groups
+
+Each pair of mutually exclusive groups (Parsimony only, Bayesian only, Both) is compared on each character attribute. Categorical attributes use a Monte Carlo chi-square test with Cramér's V; number of states uses a Wilcoxon rank-sum test. P-values are Holm-adjusted within each attribute. Pairs where either group has fewer than 5 characters are not tested.
+
+```{r pairwise_groups, results = "asis"}
+groups <- c("Parsimony only", "Bayesian only", "Both")
+grp_n <- table(factor(chars$use_group, levels = groups))
+cat_attrs <- c(`Anatomical region` = "region", `Character type` = "type",
+               `Multistate ordering` = "ordering", `Designation` = "designation")
+pairs <- combn(groups, 2, simplify = FALSE)
+res <- list()
+for (pr in pairs) {
+  sub <- chars %>% filter(use_group %in% pr) %>% mutate(use_group = droplevels(use_group))
+  ok <- all(grp_n[pr] >= 5)
+  for (lab in names(cat_attrs)) {
+    a <- if (ok) assoc_test(table(sub$use_group, sub[[cat_attrs[[lab]]]])) else NULL
+    res[[length(res) + 1]] <- tibble(Pair = paste(pr, collapse = " vs. "), Attribute = lab,
+                                     Test = "Chi-square", Statistic = if (is.null(a)) NA else unname(a$chi$statistic),
+                                     p = if (is.null(a)) NA else a$chi$p.value,
+                                     Effect = if (is.null(a)) NA else a$v, `Effect size` = "Cramér's V")
+  }
+  x <- sub$n_states_listed[sub$use_group == pr[1] & sub$n_states_listed > 0]
+  y <- sub$n_states_listed[sub$use_group == pr[2] & sub$n_states_listed > 0]
+  w <- if (ok && length(x) >= 5 && length(y) >= 5) suppressWarnings(wilcox.test(x, y)) else NULL
+  res[[length(res) + 1]] <- tibble(Pair = paste(pr, collapse = " vs. "), Attribute = "Number of states",
+                                   Test = "Wilcoxon", Statistic = if (is.null(w)) NA else unname(w$statistic),
+                                   p = if (is.null(w)) NA else w$p.value,
+                                   Effect = if (is.null(w)) NA else median(x) - median(y),
+                                   `Effect size` = "Difference in medians")
+}
+pairwise_res <- bind_rows(res) %>%
+  group_by(Attribute) %>% mutate(`p (Holm)` = p.adjust(p, method = "holm")) %>% ungroup()
+
+cat("Group sizes: ", paste0(groups, " = ", as.integer(grp_n), collapse = "; "), "\n\n")
+untested <- pairwise_res %>% group_by(Pair) %>% filter(all(is.na(p))) %>% distinct(Pair) %>% pull(Pair)
+if (length(untested) > 0) {
+  cat("Not tested (a group has fewer than 5 characters): ", paste(untested, collapse = "; "), "\n\n")
+}
+pairwise_res %>% filter(!Pair %in% untested) %>%
+  mutate(Statistic = round(Statistic, 2), Effect = round(Effect, 2),
+         p = fmt_p(p), `p (Holm)` = fmt_p(`p (Holm)`)) %>%
+  kable(caption = "Table 13. Pairwise comparisons of the character sets used by each analysis group") %>% print()
+cat("\n\n")
+chars %>% filter(use_group %in% groups) %>%
+  group_by(`Use group` = use_group) %>%
+  summarise(n = n(),
+            `% Discrete` = percent(mean(type == "Discrete"), accuracy = 1),
+            `% Ordered`  = percent(mean(ordering == "Ordered"), accuracy = 1),
+            `% Cranial`  = percent(mean(region == "Cranial"), accuracy = 1),
+            `% Dental`   = percent(mean(region == "Dental"), accuracy = 1),
+            `% Postcranial` = percent(mean(region == "Postcranial"), accuracy = 1),
+            `Median states` = median(n_states_listed[n_states_listed > 0]),
+            .groups = "drop") %>%
+  kable(caption = "Table 14. Summary of each analysis group") %>% print()
+```
+
+## 4.2 Overlap between each pair of sources
+
+```{r pairwise_sources, results = "asis", fig.height = 5}
+src_sets <- links %>% distinct(citation_key, character_id) %>% split(.$citation_key) %>% map(~ .x$character_id)
+src_names <- names(src_sets)
+ov <- expand_grid(A = src_names, B = src_names) %>%
+  mutate(shared  = map2_int(A, B, ~ length(intersect(src_sets[[.x]], src_sets[[.y]]))),
+         union   = map2_int(A, B, ~ length(union(src_sets[[.x]], src_sets[[.y]]))),
+         jaccard = shared / union)
+ov %>% filter(A < B) %>%
+  mutate(Method = paste(replace_na(unname(analysis_method[A]), "?"), "/", replace_na(unname(analysis_method[B]), "?")),
+         jaccard = round(jaccard, 2)) %>%
+  arrange(desc(shared)) %>%
+  select(`Source A` = A, `Source B` = B, Method, `Shared characters` = shared, `Jaccard index` = jaccard) %>%
+  kable(caption = "Table 15. Characters shared by each pair of sources") %>% print()
+cat("\n\n")
+p <- ggplot(ov, aes(A, B, fill = jaccard)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = shared), size = 3.5) +
+  scale_fill_gradient(low = "#F7FBFF", high = "#2171B5", limits = c(0, 1), name = "Jaccard") +
+  labs(title = "Characters shared between sources", subtitle = "Numbers are shared characters; colour is Jaccard overlap",
+       x = NULL, y = NULL) +
+  theme_minimal(base_size = 12) + theme(axis.text.x = element_text(angle = 40, hjust = 1))
+show_plot(p, "prelim_06_source_overlap", height = 5)
+```
+
+## 4.3 Associations between each pair of character attributes
+
+```{r pairwise_attrs, results = "asis", fig.height = 5}
+attrs <- c(`Region` = "region", `Type` = "type", `Ordering` = "ordering",
+           `Designation` = "designation", `Use group` = "use_group")
+attr_pairs <- combn(names(attrs), 2, simplify = FALSE)
+assoc <- map_dfr(attr_pairs, function(pr) {
+  a <- assoc_test(table(chars[[attrs[[pr[1]]]]], chars[[attrs[[pr[2]]]]]))
+  tibble(A = pr[1], B = pr[2],
+         `Cramér's V` = if (is.null(a)) NA else a$v,
+         p = if (is.null(a)) NA else a$chi$p.value)
+}) %>% mutate(`p (Holm)` = p.adjust(p, method = "holm"))
+assoc %>% mutate(`Cramér's V` = round(`Cramér's V`, 2), p = fmt_p(p), `p (Holm)` = fmt_p(`p (Holm)`)) %>%
+  kable(caption = "Table 16. Pairwise association between character attributes (unscored values included as a category)") %>% print()
+cat("\n\n")
+p <- bind_rows(assoc, assoc %>% rename(A = B, B = A)) %>%
+  ggplot(aes(A, B, fill = `Cramér's V`)) + geom_tile(color = "white") +
+  geom_text(aes(label = round(`Cramér's V`, 2)), size = 3.5) +
+  scale_fill_gradient(low = "#FFF5EB", high = "#D94801", limits = c(0, 1)) +
+  labs(title = "Strength of association between character attributes", x = NULL, y = NULL) +
+  theme_minimal(base_size = 12)
+show_plot(p, "prelim_07_attribute_associations", height = 5)
+```
+
+```{r session}
+sessionInfo()
+```

@@ -1,8 +1,10 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views import generic
-from django.db.models import Q
-from .models import Character, CharacterState, Fossil, FossilCharacterState
+from itertools import groupby
+from django.db.models import Q, Count, Prefetch
+from .models import (Character, CharacterState, Fossil, FossilCharacterState,
+                     SkeletalElement, Publication, CharacterPublication)
 
 
 # Home page view
@@ -26,7 +28,7 @@ class CharacterListView(generic.ListView):
     paginate_by = 20
     
     def get_queryset(self):
-        queryset = Character.objects.all().prefetch_related('states')
+        queryset = Character.objects.all().prefetch_related('states', 'skeletal_elements')
         
         # Filter by anatomical region
         region = self.request.GET.get('region')
@@ -44,9 +46,20 @@ class CharacterListView(generic.ListView):
             queryset = queryset.filter(
                 Q(character__icontains=search) | 
                 Q(description__icontains=search) |
-                Q(skeletal_element__icontains=search)
-            )
-        
+                Q(skeletal_element__icontains=search) |
+                Q(skeletal_elements__name__icontains=search)
+            ).distinct()
+
+        # Filter by linked skeletal element
+        element = self.request.GET.get('element')
+        if element and element.isdigit():
+            queryset = queryset.filter(skeletal_elements__pk=element).distinct()
+
+        # Filter by linked publication
+        publication = self.request.GET.get('publication')
+        if publication and publication.isdigit():
+            queryset = queryset.filter(character_publications__publication__pk=publication).distinct()
+
         return queryset.order_by('character')
     
     def get_context_data(self, **kwargs):
@@ -56,6 +69,14 @@ class CharacterListView(generic.ListView):
         context['current_region'] = self.request.GET.get('region', '')
         context['current_type'] = self.request.GET.get('type', '')
         context['search_query'] = self.request.GET.get('search', '')
+        context['elements'] = SkeletalElement.objects.order_by('name')
+        context['publications'] = Publication.objects.order_by('year', 'authors')
+        context['current_element'] = self.request.GET.get('element', '')
+        context['current_publication'] = self.request.GET.get('publication', '')
+        # current filters minus the page number, for pagination links
+        params = self.request.GET.copy()
+        params.pop('page', None)
+        context['filter_query'] = params.urlencode()
         return context
 
 
@@ -76,7 +97,17 @@ class CharacterDetailView(generic.DetailView):
         context['fossils'] = Fossil.objects.filter(
             character_states__character=character
         ).distinct().select_related().prefetch_related('character_states')
-        
+
+        # Skeletal elements and publications linked to this character
+        context['elements'] = character.skeletal_elements.all()
+        links = (character.character_publications
+                 .select_related('publication')
+                 .order_by('publication__year', 'publication__authors', 'role'))
+        context['source_rows'] = [
+            {'publication': pub, 'links': list(group)}
+            for pub, group in groupby(links, key=lambda link: link.publication)
+        ]
+
         return context
 
 
@@ -227,4 +258,96 @@ def bone_data(request, uberon_id):
     return JsonResponse(data)
 
 
+# ---------------------------------------------------------------------------
+# Skeletal elements and publications (public pages)
+# ---------------------------------------------------------------------------
 
+class SkeletalElementListView(generic.ListView):
+    """All skeletal elements, with how many characters are scored on each"""
+    model = SkeletalElement
+    template_name = 'hcdb/element_list.html'
+    context_object_name = 'elements'
+
+    def get_queryset(self):
+        qs = SkeletalElement.objects.annotate(character_count=Count('characters', distinct=True))
+        region = self.request.GET.get('region')
+        if region:
+            qs = qs.filter(anatomical_region=region)
+        return qs.order_by('name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['regions'] = dict(SkeletalElement._meta.get_field('anatomical_region').choices)
+        context['current_region'] = self.request.GET.get('region', '')
+        return context
+
+
+class SkeletalElementDetailView(generic.DetailView):
+    """One skeletal element: its characters and the publications that use them"""
+    model = SkeletalElement
+    template_name = 'hcdb/element_detail.html'
+    context_object_name = 'element'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        element = self.object
+        context['characters'] = (element.characters
+                                 .annotate(state_count=Count('states', distinct=True))
+                                 .prefetch_related(Prefetch('publications',
+                                                            queryset=Publication.objects.distinct().order_by('year')))
+                                 .order_by('character'))
+        context['publications'] = (Publication.objects
+                                   .filter(characters__skeletal_elements=element)
+                                   .annotate(character_count=Count('characters', distinct=True))
+                                   .order_by('year', 'authors'))
+        return context
+
+
+class PublicationListView(generic.ListView):
+    """All publications/sources, with how many characters each contributes"""
+    model = Publication
+    template_name = 'hcdb/publication_list.html'
+    context_object_name = 'publications'
+
+    def get_queryset(self):
+        qs = Publication.objects.annotate(
+            character_count=Count('character_publications__character', distinct=True))
+        search = self.request.GET.get('search')
+        if search:
+            qs = qs.filter(Q(citation_key__icontains=search) | Q(authors__icontains=search) |
+                           Q(title__icontains=search) | Q(journal__icontains=search))
+        return qs.order_by('year', 'authors')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('search', '')
+        return context
+
+
+class PublicationDetailView(generic.DetailView):
+    """One publication: every character it defines, describes or uses, and how"""
+    model = Publication
+    template_name = 'hcdb/publication_detail.html'
+    context_object_name = 'publication'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pub = self.object
+        links = (pub.character_publications
+                 .select_related('character')
+                 .prefetch_related('character__skeletal_elements')
+                 .order_by('character__character', 'role'))
+        # one row per character, listing every role this publication plays for it
+        rows = []
+        for character, group in groupby(links, key=lambda link: link.character):
+            group = list(group)
+            rows.append({'character': character, 'links': group})
+        context['rows'] = rows
+        context['elements'] = (SkeletalElement.objects
+                               .filter(characters__character_publications__publication=pub)
+                               .annotate(character_count=Count('characters', distinct=True))
+                               .order_by('-character_count', 'name'))
+        context['role_counts'] = (pub.character_publications.values('role')
+                                  .annotate(n=Count('id')).order_by('role'))
+        context['role_labels'] = dict(CharacterPublication._meta.get_field('role').choices)
+        return context

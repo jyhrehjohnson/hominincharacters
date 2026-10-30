@@ -1,5 +1,8 @@
+from django.urls import reverse
+from django.utils.html import format_html
 from django.contrib import admin
-from .models import Character, CharacterState, Fossil, FossilCharacterState
+from .models import (Character, CharacterState, Fossil, FossilCharacterState,
+                     SkeletalElement, Publication, CharacterPublication)
 from import_export.admin import ImportExportModelAdmin
 from import_export import resources, fields, widgets
 from django.urls import include, path
@@ -101,11 +104,94 @@ class CharacterStateInline(admin.TabularInline):
     fields = ['state_code', 'state_name', 'state_description', 'state_order', 'is_derived', 'notes']
     ordering = ['state_order', 'state_code']
 
+# ---------------------------------------------------------------------------
+# Skeletal elements and publications
+# ---------------------------------------------------------------------------
+
+class CharacterPublicationInline(admin.TabularInline):
+    """Publications that define, describe or use a character (shown on the Character page)."""
+    model = CharacterPublication
+    extra = 1
+    autocomplete_fields = ['publication']
+    fields = ['publication', 'role', 'character_number', 'page', 'original_wording', 'original_states', 'notes']
+
+
+class SkeletalElementResource(resources.ModelResource):
+    class Meta:
+        model = SkeletalElement
+        import_id_fields = ['id']
+        fields = ('id', 'name', 'anatomical_region', 'uberon_ID', 'description', 'notes')
+
+
+class PublicationResource(resources.ModelResource):
+    class Meta:
+        model = Publication
+        import_id_fields = ['citation_key']
+        fields = ('id', 'citation_key', 'authors', 'year', 'title', 'journal', 'volume',
+                  'issue', 'pages', 'doi', 'url', 'notes')
+
+
+class CharacterPublicationResource(resources.ModelResource):
+    class Meta:
+        model = CharacterPublication
+        import_id_fields = ['id']
+        fields = ('id', 'character', 'publication', 'role', 'character_number', 'page',
+                  'original_wording', 'original_states', 'notes')
+
+
+class SkeletalElementAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_class = SkeletalElementResource
+    list_display = ['name', 'anatomical_region', 'uberon_ID', 'character_count']
+    list_filter = ['anatomical_region']
+    search_fields = ['name', 'uberon_ID']
+
+    def character_count(self, obj):
+        return obj.characters.count()
+    character_count.short_description = 'Characters'
+
+admin.site.register(SkeletalElement, SkeletalElementAdmin)
+
+
+class PublicationAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_class = PublicationResource
+    list_display = ['citation_key', 'authors', 'year', 'title', 'journal', 'character_count']
+    list_filter = ['year']
+    search_fields = ['citation_key', 'authors', 'title', 'journal', 'doi']
+    # The character links are NOT shown as an editable inline here: a source with hundreds of
+    # characters makes the form exceed Django's 1,000-field limit (TooManyFieldsSent) on save.
+    # Instead this links to the Character Publication list filtered to this publication.
+    readonly_fields = ['linked_characters']
+
+    def linked_characters(self, obj):
+        if not obj or not obj.pk:
+            return 'Save the publication first, then link characters to it.'
+        n = obj.character_publications.count()
+        url = reverse('admin:hcdb_characterpublication_changelist') + f'?publication__id__exact={obj.pk}'
+        return format_html('<a href="{}">View or edit the {} character links for this publication</a>', url, n)
+    linked_characters.short_description = 'Character links'
+
+    def character_count(self, obj):
+        return obj.characters.distinct().count()
+    character_count.short_description = 'Characters'
+
+admin.site.register(Publication, PublicationAdmin)
+
+
+class CharacterPublicationAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_class = CharacterPublicationResource
+    list_display = ['character', 'publication', 'role', 'character_number', 'page']
+    list_filter = ['role', 'publication']
+    search_fields = ['character__character', 'publication__citation_key', 'publication__authors']
+    autocomplete_fields = ['character', 'publication']
+
+admin.site.register(CharacterPublication, CharacterPublicationAdmin)
+
+
 class CharacterAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     resource_class = CharacterResource
     fieldsets = [  # create the field sets for user input
         ('Character Information',
-         {'fields': ['character', 'skeletal_element', 'anatomical_region', 'character_type', 'multistate_type',
+         {'fields': ['character', 'skeletal_element', 'skeletal_elements', 'anatomical_region', 'character_type', 'multistate_type',
                      'character_designation','character_significance', 'uberon_ID', 'description', 'number_of_states',
                      'state_code', 'taxa_found', 'notes' ]}
          ),
@@ -118,7 +204,8 @@ class CharacterAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     list_filter = ['anatomical_region','character_type', 'character_designation', 'character_significance']  # set what can be filtered
     search_fields = ['character', 'anatomical_region', 'character_type','character_designation']  # set what can be searched
 
-    inlines = [CharacterStateInline]
+    filter_horizontal = ['skeletal_elements']
+    inlines = [CharacterStateInline, CharacterPublicationInline]
     
     def display_anatomical_region(self, obj):
         """Display the human-readable anatomical region"""

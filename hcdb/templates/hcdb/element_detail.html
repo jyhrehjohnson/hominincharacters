@@ -1,0 +1,59 @@
+{% extends 'hcdb/base.html' %}
+
+{% block title %}{{ element.name }} - Skeletal Elements - Hominin Characters Database{% endblock %}
+{% block extra_css %}{% include 'hcdb/_links_css.html' %}{% endblock %}
+
+{% block content %}
+<a href="{% url 'hcdb:element_list' %}" class="back-link">← All skeletal elements</a>
+<h1>{{ element.name }}</h1>
+
+<div class="stat-row">
+    <div class="stat-pill"><strong>{{ characters|length }}</strong> characters</div>
+    <div class="stat-pill"><strong>{{ publications|length }}</strong> publications</div>
+    <div class="stat-pill">Region: <strong>{{ element.get_anatomical_region_display|default:"Multiple" }}</strong></div>
+    {% if element.uberon_ID %}<div class="stat-pill">UBERON: <strong>{{ element.uberon_ID }}</strong></div>{% endif %}
+</div>
+
+{% if element.description %}<div class="card">{{ element.description|linebreaks }}</div>{% endif %}
+
+<h2>Characters</h2>
+<div class="card table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr><th>Character</th><th>Region</th><th>Type</th><th>States</th><th>Sources</th></tr>
+        </thead>
+        <tbody>
+            {% for character in characters %}
+            <tr>
+                <td><a href="{% url 'hcdb:character_detail' character.pk %}">{{ character.character }}</a></td>
+                <td>{{ character.get_anatomical_region_display|default:"—" }}</td>
+                <td>{{ character.get_character_type_display|default:"—" }}</td>
+                <td>{{ character.state_count }}</td>
+                <td>
+                    {% for pub in character.publications.all %}<a href="{% url 'hcdb:publication_detail' pub.pk %}">{{ pub }}</a>{% if not forloop.last %}; {% endif %}{% empty %}<span class="muted">—</span>{% endfor %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="muted">No characters are linked to this element yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if publications %}
+<h2>Publications using characters on this element</h2>
+<div class="card table-wrap">
+    <table class="data-table">
+        <thead><tr><th>Publication</th><th>Characters on this element</th></tr></thead>
+        <tbody>
+            {% for pub in publications %}
+            <tr>
+                <td><a href="{% url 'hcdb:publication_detail' pub.pk %}">{{ pub }}</a></td>
+                <td><a href="{% url 'hcdb:character_list' %}?element={{ element.pk }}&publication={{ pub.pk }}">{{ pub.character_count }}</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'hcdb/base.html' %}
+
+{% block title %}Skeletal Elements - Hominin Characters Database{% endblock %}
+{% block extra_css %}{% include 'hcdb/_links_css.html' %}{% endblock %}
+
+{% block content %}
+<h1>Skeletal Elements</h1>
+<p class="muted">Skeletal elements on which characters in the database are scored. Select an element to see its characters and the publications that use them.</p>
+
+<div class="filters">
+    <form method="get">
+        <div class="filter-group">
+            <label for="region">Anatomical Region:</label>
+            <select name="region" id="region">
+                <option value="">All Regions</option>
+                {% for code, name in regions.items %}
+                    <option value="{{ code }}" {% if code == current_region %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <button type="submit" class="btn">Filter</button>
+        </div>
+        {% if current_region %}
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <a href="{% url 'hcdb:element_list' %}" class="btn btn-secondary">Clear</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr><th>Element</th><th>Region</th><th>UBERON ID</th><th>Characters</th></tr>
+        </thead>
+        <tbody>
+            {% for element in elements %}
+            <tr>
+                <td><a href="{% url 'hcdb:element_detail' element.pk %}">{{ element.name }}</a></td>
+                <td>{{ element.get_anatomical_region_display|default:"Multiple" }}</td>
+                <td>{{ element.uberon_ID|default:"—" }}</td>
+                <td><a href="{% url 'hcdb:character_list' %}?element={{ element.pk }}">{{ element.character_count }}</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="muted">No skeletal elements found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{# Skeletal elements and sources for one character. Included in character_detail.html #}
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">Skeletal Elements</h2>
+        <span class="section-count">{{ elements|length }}</span>
+    </div>
+    {% if elements %}
+        <div class="link-chips">
+            {% for element in elements %}
+                <a class="link-chip" href="{% url 'hcdb:element_detail' element.pk %}">
+                    {{ element.name }}{% if element.uberon_ID %} <span class="chip-meta">{{ element.uberon_ID }}</span>{% endif %}
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-data">No skeletal element has been linked to this character yet.</div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">Sources &amp; Uses</h2>
+        <span class="section-count">{{ source_rows|length }}</span>
+    </div>
+    {% if source_rows %}
+        <table class="fossils-table">
+            <thead>
+                <tr>
+                    <th>Publication</th>
+                    <th>Role</th>
+                    <th>Character no.</th>
+                    <th>Page / table</th>
+                    <th>Original wording or states</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in source_rows %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'hcdb:publication_detail' row.publication.pk %}" class="fossil-link">{{ row.publication }}</a>
+                        </td>
+                        <td>{% for link in row.links %}<span class="role-tag role-{{ link.role|lower }}">{{ link.get_role_display }}</span>{% endfor %}</td>
+                        <td>{% for link in row.links %}{% if link.character_number %}{{ link.character_number }}{% if not forloop.last %}, {% endif %}{% endif %}{% empty %}—{% endfor %}</td>
+                        <td>{% for link in row.links %}{% if link.page %}{{ link.page }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}</td>
+                        <td>
+                            {% for link in row.links %}
+                                {% if link.original_wording %}<div>{{ link.original_wording }}</div>{% endif %}
+                                {% if link.original_states %}<div class="chip-meta">States: {{ link.original_states }}</div>{% endif %}
+                            {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="no-data">No publications have been linked to this character yet.</div>
+    {% endif %}
+</div>
