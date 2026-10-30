@@ -11,7 +11,7 @@ class Command(BaseCommand):
             'Cranial': 'CR', 'cranial': 'CR', 'CR': 'CR',
             'Dental': 'DEN', 'dental': 'DEN', 'DEN': 'DEN',
             'Craniofacial': 'CF', 'craniofacial': 'CF', 'CF': 'CF',
-            'Postcranial': 'PC', 'postcranial': 'PC', 'PC': 'PC'
+            'Postcranial': 'POST', 'postcranial': 'POST', 'PC': 'POST', 'POST': 'POST'
         }
 
         type_map = {

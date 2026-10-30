@@ -325,6 +325,7 @@
             }
         }
     </style>
+    {% include 'hcdb/_links_css.html' %}
 </head>
 <body>
     <nav class="navbar">
@@ -446,29 +447,25 @@
         <div class="section">
             <div class="section-header">
                 <h2 class="section-title">Character States</h2>
-                <span class="section-count">{{ character_states.count }}</span>
+                <span class="section-count">{{ character_state_assignments|length }}</span>
             </div>
 
-            {% if character_states %}
-                <div class="states-grid">
-                    {% for state in character_states %}
-                        <div class="state-card">
-                            <div class="state-header">
-                                <div>
-                                    <div class="state-character">
-                                        <a href="{% url 'hcdb:character_detail' state.character.pk %}" class="character-link">
-                                            {{ state.character.character }}
-                                        </a>
-                                    </div>
-                                    <div class="state-name">{{ state.state_name }}</div>
-                                    {% if state.state_description %}
-                                        <div class="state-description">{{ state.state_description }}</div>
-                                    {% endif %}
-                                </div>
-                                <span class="state-code">{{ state.state_code }}</span>
-                            </div>
-                        </div>
-                    {% endfor %}
+            {% if character_state_assignments %}
+                <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>Character</th><th>State</th><th>Source</th><th>Confidence</th><th>Notes</th></tr></thead>
+                    <tbody>
+                        {% for a in character_state_assignments %}
+                            <tr>
+                                <td><a href="{% url 'hcdb:character_detail' a.character_state.character.pk %}">{{ a.character_state.character.character }}</a></td>
+                                <td>{{ a.character_state.state_code }}: {{ a.character_state.state_name }}</td>
+                                <td>{% if a.publication %}<a href="{% url 'hcdb:publication_detail' a.publication.pk %}">{{ a.publication }}</a>{% if a.page %} <span class="chip-meta">{{ a.page }}</span>{% endif %}{% else %}<span class="muted">Database observation</span>{% endif %}</td>
+                                <td>{{ a.get_confidence_display|default:"—" }}</td>
+                                <td>{{ a.notes|default:"" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
                 </div>
             {% else %}
                 <div class="no-data">

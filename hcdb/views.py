@@ -4,7 +4,7 @@ from django.views import generic
 from itertools import groupby
 from django.db.models import Q, Count, Prefetch
 from .models import (Character, CharacterState, Fossil, FossilCharacterState,
-                     SkeletalElement, Publication, CharacterPublication)
+                     SkeletalElement, Publication, CharacterPublication, TaxonCharacterState)
 
 
 # Home page view
@@ -108,6 +108,23 @@ class CharacterDetailView(generic.DetailView):
             for pub, group in groupby(links, key=lambda link: link.publication)
         ]
 
+        # Species-level codings from published matrices, grouped by source
+        taxon_scores = (character.taxon_scores
+                        .select_related('publication')
+                        .prefetch_related('states')
+                        .order_by('publication__year', 'publication__authors', 'taxon'))
+        context['taxon_rows'] = [
+            {'publication': pub, 'scores': list(group)}
+            for pub, group in groupby(taxon_scores, key=lambda t: t.publication)
+        ]
+        context['taxon_score_count'] = len(taxon_scores)
+
+        # Specimen-level scores for this character
+        context['fossil_scores'] = (FossilCharacterState.objects
+                                    .filter(character_state__character=character)
+                                    .select_related('fossil', 'character_state', 'publication')
+                                    .order_by('fossil__fossil_id'))
+
         return context
 
 
@@ -170,8 +187,8 @@ class FossilDetailView(generic.DetailView):
         
         # Get character state assignments with related data
         context['character_state_assignments'] = fossil.fossil_character_states.select_related(
-            'character_state__character'
-        ).order_by('character_state__character__character')
+            'character_state__character', 'publication'
+        ).order_by('character_state__character__character', 'publication__year')
         
         return context
 

@@ -2,7 +2,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.contrib import admin
 from .models import (Character, CharacterState, Fossil, FossilCharacterState,
-                     SkeletalElement, Publication, CharacterPublication)
+                     SkeletalElement, Publication, CharacterPublication, TaxonCharacterState)
 from import_export.admin import ImportExportModelAdmin
 from import_export import resources, fields, widgets
 from django.urls import include, path
@@ -79,8 +79,10 @@ class FossilResource(resources.ModelResource):
         print(f"  - taxon = '{taxon}'")
         print(f"  - uberon_ID = '{uberon_id}'")
         
-        # Validate anatomical_region
-        valid_region_codes = ['CR', 'DEN', 'CF', 'PC']
+        # Validate anatomical_region (old spreadsheets used PC for postcranial; convert it to POST)
+        if anatomical_region == 'PC':
+            anatomical_region = row['anatomical_region'] = 'POST'
+        valid_region_codes = ['CR', 'DEN', 'CF', 'POST']
         if anatomical_region and anatomical_region not in valid_region_codes:
             raise ValueError(f"Invalid anatomical_region '{anatomical_region}' for {fossil_id}. Must be one of: {valid_region_codes}")
         
@@ -93,8 +95,8 @@ class FossilCharacterStateResource(resources.ModelResource):
     class Meta:
         model = FossilCharacterState
         import_id_fields = ['id']  # or ['fossil', 'character_state'] for the unique_together
-        fields = ('id', 'fossil', 'character_state', 'confidence', 'assigned_by',
-                  'assigned_date', 'notes')
+        fields = ('id', 'fossil', 'character_state', 'publication', 'page', 'confidence',
+                  'assigned_by', 'assigned_date', 'notes')
         skip_unchanged = False
         report_skipped = False
 
@@ -310,9 +312,10 @@ class FossilAdmin(ImportExportModelAdmin, admin.ModelAdmin):
          {'fields': ['discovery_date', 'location', 'notes'],
           'classes': ['collapse']}  # This makes the section collapsible
          ),
+        ('Character scores', {'fields': ['character_scores']}),
     ]
 
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'character_scores')
 
     list_display = [
         'fossil_id',
@@ -340,9 +343,18 @@ class FossilAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         'notes'
     ]
 
-    inlines = [FossilCharacterStateInline]
-    
+    # Scores are edited on their own list (see character_scores) rather than in an inline here.
     list_per_page = 50
+
+    def character_scores(self, obj):
+        if not obj or not obj.pk:
+            return 'Save the fossil first, then add character scores.'
+        n = obj.fossil_character_states.count()
+        list_url = reverse('admin:hcdb_fossilcharacterstate_changelist') + f'?fossil__id__exact={obj.pk}'
+        add_url = reverse('admin:hcdb_fossilcharacterstate_add') + f'?fossil={obj.pk}'
+        return format_html('<a href="{}">View or edit the {} character scores for this fossil</a>'
+                           ' &nbsp;|&nbsp; <a href="{}">Add a score</a>', list_url, n, add_url)
+    character_scores.short_description = 'Character scores'
     date_hierarchy = 'created_at'
     
     def get_character_count(self, obj):
@@ -376,7 +388,7 @@ class FossilCharacterStateAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     resource_class = FossilCharacterStateResource
     fieldsets = [
         ('Assignment Information',
-         {'fields': ['fossil', 'character_state', 'confidence']}
+         {'fields': ['fossil', 'character_state', 'confidence', 'publication', 'page']}
          ),
         ('Details',
          {'fields': ['assigned_by', 'assigned_date', 'notes'],
@@ -391,6 +403,7 @@ class FossilCharacterStateAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         'get_character',
         'character_state',
         'confidence',
+        'publication',
         'assigned_by',
         'assigned_date',
         'created_at'
@@ -398,6 +411,7 @@ class FossilCharacterStateAdmin(ImportExportModelAdmin, admin.ModelAdmin):
 
     list_filter = [
         'confidence',
+        'publication',
         'character_state__character',
         'assigned_date',
         'created_at'
@@ -411,7 +425,7 @@ class FossilCharacterStateAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         'notes'
     ]
 
-    autocomplete_fields = ['fossil', 'character_state']
+    autocomplete_fields = ['fossil', 'character_state', 'publication']
     list_per_page = 50
     date_hierarchy = 'created_at'
     ordering = ['fossil', 'character_state__character', 'character_state__state_order']
@@ -623,3 +637,27 @@ def search(request):
 def public_page(request):
     items = Item.objects.all().order_by('-created_at')
     return render(request, 'public_page.html', {'items': items})
+
+
+# ---------------------------------------------------------------------------
+# Species-level (taxon) scores from published matrices
+# ---------------------------------------------------------------------------
+
+class TaxonCharacterStateResource(resources.ModelResource):
+    class Meta:
+        model = TaxonCharacterState
+        import_id_fields = ['id']
+        fields = ('id', 'character', 'publication', 'taxon', 'raw_code', 'status', 'states',
+                  'character_number', 'notes')
+
+
+class TaxonCharacterStateAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_class = TaxonCharacterStateResource
+    list_display = ['taxon', 'character', 'raw_code', 'status', 'publication', 'character_number']
+    list_filter = ['publication', 'status', 'taxon']
+    search_fields = ['taxon', 'character__character', 'publication__citation_key', 'raw_code']
+    autocomplete_fields = ['character', 'publication', 'states']
+    readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 50
+
+admin.site.register(TaxonCharacterState, TaxonCharacterStateAdmin)

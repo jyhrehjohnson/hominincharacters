@@ -56,3 +56,55 @@
         <div class="no-data">No publications have been linked to this character yet.</div>
     {% endif %}
 </div>
+
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">Species-level Codings</h2>
+        <span class="section-count">{{ taxon_score_count }}</span>
+    </div>
+    {% if taxon_rows %}
+        <p class="muted" style="margin-bottom: 12px;">How each source coded this character for each taxon. Codes are shown exactly as written in the source; state names appear where the code matches this database's states.</p>
+        {% for row in taxon_rows %}
+            <h3 style="margin: 16px 0 8px;"><a href="{% url 'hcdb:publication_detail' row.publication.pk %}" class="fossil-link">{{ row.publication }}</a></h3>
+            <table class="fossils-table">
+                <thead><tr><th>Taxon</th><th>Code</th><th>State</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for t in row.scores %}
+                        <tr>
+                            <td>{{ t.taxon }}</td>
+                            <td>{{ t.raw_code|default:"—" }}</td>
+                            <td>{% for st in t.states.all %}{{ st.state_name }}{% if not forloop.last %} / {% endif %}{% empty %}<span class="muted">—</span>{% endfor %}</td>
+                            <td><span class="chip-meta">{{ t.get_status_display }}</span>{% if t.notes %}<div class="chip-meta">{{ t.notes }}</div>{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    {% else %}
+        <div class="no-data">No species-level codings have been imported for this character yet.</div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">Specimen Scores</h2>
+        <span class="section-count">{{ fossil_scores|length }}</span>
+    </div>
+    {% if fossil_scores %}
+        <table class="fossils-table">
+            <thead><tr><th>Fossil</th><th>State</th><th>Source</th><th>Confidence</th></tr></thead>
+            <tbody>
+                {% for fs in fossil_scores %}
+                    <tr>
+                        <td><a href="{% url 'hcdb:fossil_detail' fs.fossil.pk %}" class="fossil-link">{{ fs.fossil.fossil_id }}</a></td>
+                        <td>{{ fs.character_state.state_code }}: {{ fs.character_state.state_name }}</td>
+                        <td>{% if fs.publication %}<a href="{% url 'hcdb:publication_detail' fs.publication.pk %}">{{ fs.publication }}</a>{% if fs.page %} <span class="chip-meta">{{ fs.page }}</span>{% endif %}{% else %}<span class="muted">Database observation</span>{% endif %}</td>
+                        <td>{{ fs.get_confidence_display|default:"—" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="no-data">No specimens have been scored for this character yet.</div>
+    {% endif %}
+</div>

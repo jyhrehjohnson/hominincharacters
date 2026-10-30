@@ -138,11 +138,17 @@ class FossilCharacterState(models.Model):
                                    help_text="Person who assigned this state")
     assigned_date = models.DateField(null=True, blank=True,
                                      help_text="Date when this state was assigned")
+    publication = models.ForeignKey('Publication', on_delete=models.PROTECT, null=True, blank=True,
+                                    related_name='fossil_scores',
+                                    help_text="Published source of this score. Leave blank for your own observations.")
+    page = models.CharField(max_length=30, null=True, blank=True,
+                            help_text="Page, table or figure in the source")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['fossil', 'character_state']
+        # the same fossil can carry the same state from more than one source
+        unique_together = ['fossil', 'character_state', 'publication']
         ordering = ['fossil', 'character_state__character', 'character_state__state_order']
         verbose_name = 'Fossil Character State'
         verbose_name_plural = 'Fossil Character States'
@@ -239,6 +245,47 @@ class CharacterPublication(models.Model):
         return f"{self.character} - {self.publication} ({self.get_role_display()})"
 
 
+TAXON_SCORE_STATUS_CHOICES = (
+    ('SCORED', 'Scored (one state)'),
+    ('POLY', 'Polymorphic or uncertain (several states)'),
+    ('MISSING', 'Missing / unknown (?)'),
+    ('NA', 'Inapplicable (-)'),
+    ('UNMAPPED', 'Code not matched to a state in this database'),
+)
+
+
+class TaxonCharacterState(models.Model):
+    """How a source coded a character for a species (or other taxon).
+
+    Kept separate from FossilCharacterState: these are species-level codings from matrices,
+    not observations on individual specimens.
+    """
+    character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='taxon_scores')
+    publication = models.ForeignKey('Publication', on_delete=models.PROTECT, related_name='taxon_scores',
+                                    help_text="Source of this coding")
+    taxon = models.CharField(max_length=100,
+                             help_text="Taxon as named in the source, e.g. 'Paranthropus boisei' or 'P_boisei'")
+    raw_code = models.CharField(max_length=50, blank=True,
+                                help_text="The code exactly as written in the source, e.g. 0, 0/1, ?, -")
+    status = models.CharField(max_length=10, choices=TAXON_SCORE_STATUS_CHOICES, default='SCORED')
+    states = models.ManyToManyField(CharacterState, blank=True, related_name='taxon_scores',
+                                    help_text="Database state(s) this code corresponds to (two or more if polymorphic)")
+    character_number = models.CharField(max_length=20, null=True, blank=True,
+                                        help_text="Character number or label in the source matrix")
+    notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['character', 'publication', 'taxon']
+        ordering = ['character', 'taxon', 'publication']
+        verbose_name = 'Taxon Character State'
+        verbose_name_plural = 'Taxon Character States'
+
+    def __str__(self):
+        return f"{self.taxon} - {self.character} = {self.raw_code} ({self.publication.citation_key})"
+
+
 class Item(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -260,7 +307,7 @@ class Item(models.Model):
         print(f"  - uberon_ID = '{uberon_id}'")
         
         # Validate anatomical_region
-        valid_region_codes = ['CR', 'DEN', 'CF', 'PC']
+        valid_region_codes = ['CR', 'DEN', 'CF', 'POST']
         if anatomical_region and anatomical_region not in valid_region_codes:
             raise ValueError(f"Invalid anatomical_region '{anatomical_region}' for {fossil_id}. Must be one of: {valid_region_codes}")
         
